@@ -4,40 +4,26 @@
 #include <IOKit/IOLib.h>
 #include <libkern/libkern.h>
 #include <stddef.h>
+#include <sys/time.h>
 
-// --- 1. DEFINIÇÕES CRÍTICAS (PARA O WIFI.H) ---
-#ifndef KERNEL_VERSION
-#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
-#endif
-
-#ifndef LINUX_VERSION_CODE
-#define LINUX_VERSION_CODE KERNEL_VERSION(4, 19, 0)
-#endif
-
-#ifndef BIT
-#define BIT(x) (1UL << (x))
-#endif
-
-// --- 2. TIPOS DE ENDIANNESS ---
-typedef unsigned short __le16;
-typedef unsigned int   __le32;
-typedef unsigned long long __le64;
-
-// --- 3. TIPOS BÁSICOS ---
-typedef unsigned char       u8;
-typedef unsigned short      u16;
-typedef unsigned int        u32;
-typedef unsigned long long  u64;
-typedef signed char         s8;
-typedef signed short        s16;
-typedef signed int          s32;
-typedef signed long long    s64;
-
-// --- 4. PREVENÇÃO DE REDEFINIÇÃO ---
-#ifndef MAX_TID_COUNT
+// --- Fixes para erros comuns ---
+#define ETH_ALEN 6
 #define MAX_TID_COUNT 8
-#endif
+#define RTL_MAC80211_NUM_QUEUE 4
+#define IEEE80211_NUM_BANDS 3
+#define NUM_NL80211_BANDS IEEE80211_NUM_BANDS
 
+// --- Tipos que faltam no macOS/Kernel ---
+typedef signed char s8;
+typedef signed short s16;
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned int u32;
+typedef unsigned long long u64;
+typedef long long time64_t;
+typedef unsigned long dma_addr_t;
+
+// --- Macros essenciais ---
 #ifndef __packed
 #define __packed __attribute__((packed))
 #endif
@@ -46,33 +32,31 @@ typedef signed long long    s64;
 #define __aligned(x) __attribute__((aligned(x)))
 #endif
 
-// --- 5. ESTRUTURAS BÁSICAS (DUMMIES) ---
+#ifndef BIT
+#define BIT(x) (1UL << (x))
+#endif
+
+// --- Correção da Macro __printf ---
+#ifdef __printf
+#undef __printf
+#endif
+#define __printf(a, b) __attribute__((format(printf, a, b)))
+
+// --- Estruturas (Dummy) ---
+struct mutex { int dummy; };
 struct sk_buff { void *data; };
-struct list_head { struct list_head *next, *prev; };
+struct sk_buff_head { int dummy; };
 struct timer_list { int dummy; };
 struct tasklet_struct { int dummy; };
-struct ieee80211_supported_band { int dummy; };
+struct ieee80211_tx_queue_params { int dummy; };
 struct ieee80211_hdr { unsigned short frame_control; };
+enum nl80211_iftype { NL80211_IFTYPE_STATION = 2 };
 
-// --- 6. MACROS DE I/O E LOCKS ---
+// --- I/O e Locks (Stubs) ---
 #define spin_lock(lock)
 #define spin_unlock(lock)
-#define spin_lock_bh(lock)
-#define spin_unlock_bh(lock)
-#define rcu_read_lock()
-#define rcu_read_unlock()
-
-#define __iomem
-#define readb(addr)        (*(volatile u8 *)(addr))
-#define readw(addr)        (*(volatile u16 *)(addr))
-#define readl(addr)        (*(volatile u32 *)(addr))
-#define writeb(val, addr)  (*(volatile u8 *)(addr) = (val))
-#define writew(val, addr)  (*(volatile u16 *)(addr) = (val))
-#define writel(val, addr)  (*(volatile u32 *)(addr) = (val))
-
-#define GFP_KERNEL 0
 #define printk printf
-#define pr_info(fmt, ...)  printf(fmt, ##__VA_ARGS__)
-#define pr_err(fmt, ...)   printf(fmt, ##__VA_ARGS__)
+#define pr_info(fmt, ...) printf(fmt, ##__VA_ARGS__)
+#define pr_err(fmt, ...) printf(fmt, ##__VA_ARGS__)
 
-#endif // APPLE_LINUX_EMULATION_H
+#endif
