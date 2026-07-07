@@ -3,7 +3,17 @@
 
 #include <IOKit/IOLib.h> // O coração do Kernel do macOS (substitui o linux/kernel.h)
 
-// === 1. TIPOS E MACROS ESSENCIAIS ===
+// === 1. DICIONÁRIO DE TIPOS: Traduzindo o "idioma" do Linux para o Mac ===
+typedef unsigned char       u8;
+typedef signed char         s8;
+typedef unsigned short      u16;
+typedef signed short        s16;
+typedef unsigned int        u32;
+typedef signed int          s32;
+typedef unsigned long long  u64;
+typedef signed long long    s64;
+
+// === 2. TIPOS E MACROS ESSENCIAIS ===
 #define THIS_MODULE NULL
 #define GFP_KERNEL  0
 
@@ -12,12 +22,12 @@
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif
 
-// === 2. TRADUÇÃO DE LOGS (PRINTK / PR_INFO) ===
+// === 3. TRADUÇÃO DE LOGS (PRINTK / PR_INFO) ===
 // O Linux usa pr_info, o Mac usa IOLog para registrar as mensagens no console do sistema
 #define pr_info(fmt, ...)  IOLog(fmt, ##__VA_ARGS__)
 #define pr_err(fmt, ...)   IOLog(fmt, ##__VA_ARGS__)
 
-// === 3. O TRUQUE DO VZALLOC E VFREE ===
+// === 4. O TRUQUE DO VZALLOC E VFREE ===
 // O Linux limpa a memória passando só o ponteiro. O Mac exige o tamanho exato ao liberar.
 // Criamos um mini-gerenciador que esconde o tamanho da memória antes do ponteiro real.
 static inline void* apple_vzalloc(unsigned long size) {
@@ -37,7 +47,7 @@ static inline void apple_vfree(void* ptr) {
 #define vzalloc(size) apple_vzalloc(size)
 #define vfree(ptr)    apple_vfree(ptr)
 
-// === 4. NEUTRALIZADOR DE MACROS DO LINUX ===
+// === 5. NEUTRALIZADOR DE MACROS DO LINUX ===
 // Engana o compilador do Mac fazendo ele ignorar os comandos de metadados do Linux
 #define MODULE_LICENSE(x)
 #define MODULE_AUTHOR(x)
