@@ -1,32 +1,29 @@
 name: Build RTL8723BE Kext
 
-# Define quando o GitHub vai rodar a compilação
 on:
   push:
-    branches: [ main, master ] # Roda sempre que você der 'git push'
+    branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:           # Permite que você clique no botão para compilar manualmente
+  workflow_dispatch:
 
 jobs:
   build-driver:
-    # Usamos uma máquina virtual com macOS do próprio GitHub
     runs-on: macos-latest
 
     steps:
-      # 1. Baixa o código do seu repositório para a máquina virtual
       - name: Checkout do Código
         uses: actions/checkout@v4
 
-      # 2. Entra na subpasta do chip e roda o nosso Makefile do Mac
+      # 2. Agora o robô entra primeiro em linux e depois em rtl8723be
       - name: Compilar Kext
         run: |
-          cd rtl8723be
+          cd linux/rtl8723be
           make
 
-      # 3. Pega a kext gerada lá dentro e faz o upload para você baixar
+      # 3. Atualizado o caminho do upload também
       - name: Upload do Artefato (Kext)
         uses: actions/upload-artifact@v4
         with:
           name: RTL8723BE_MacDriver_Kext
-          path: rtl8723be/RTL8723BE_MacDriver.kext
+          path: linux/rtl8723be/RTL8723BE_MacDriver.kext
