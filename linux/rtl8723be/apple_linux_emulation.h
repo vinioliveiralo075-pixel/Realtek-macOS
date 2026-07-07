@@ -29,10 +29,9 @@ typedef long long time64_t;
 #define BIT(x) (1ULL << (x))
 #define ETH_ALEN 6
 #define NUM_NL80211_BANDS 3
-#define MAX_TID_COUNT 8
 #define RTL_MAC80211_NUM_QUEUE 5
 
-// === 3. ESTRUTURAS DE CONTROLE E CONCORRÊNCIA ===
+// === 3. ESTRUTURAS DE CONTROLE E CONCORRÊNCIA (Com tamanho definido) ===
 struct list_head {
     struct list_head *next, *prev;
 };
@@ -41,17 +40,45 @@ struct mutex {
     void* owner;
 };
 
-// Emulação do Spinlock usando as travas nativas do Kernel da Apple
 typedef struct {
     IOSimpleLock* lock;
 } spinlock_t;
 
-// Emulação de variáveis atômicas
 typedef struct {
     volatile int counter;
 } atomic_t;
 
-// === 4. DECLARAÇÕES FANTASMAS (Engana as checagens de rede do Linux) ===
+// Estruturas de Async / Timers emuladas para o gerenciamento de energia e watchdog
+struct timer_list {
+    void *function;
+    unsigned long expires;
+    unsigned long data;
+};
+
+struct tasklet_struct {
+    struct tasklet_struct *next;
+    unsigned long state;
+    atomic_t count;
+    void (*func)(unsigned long);
+    unsigned long data;
+};
+
+struct work_struct {
+    atomic_t data;
+    struct list_head entry;
+    void (*func)(struct work_struct *work);
+};
+
+struct delayed_work {
+    struct work_struct work;
+    struct timer_list timer;
+};
+
+struct completion {
+    unsigned int done;
+};
+
+// === 4. DECLARAÇÕES FANTASMAS (Com suporte a membros internos) ===
 struct ieee80211_supported_band {};
 enum nl80211_iftype { NL80211_IFTYPE_UNSPECIFIED };
 enum nl80211_channel_type { NL80211_CHAN_NO_HT };
@@ -62,9 +89,12 @@ struct sk_buff {};
 struct ieee80211_hdr {};
 struct ieee80211_tx_info {};
 struct ieee80211_rx_status {};
-struct rtl_stats {};
-struct ieee80211_hw {};
 struct urb {};
+
+// Adicionado o ponteiro priv para corrigir o erro 'no member named priv'
+struct ieee80211_hw {
+    void *priv; 
+};
 
 // === 5. EMULADOR DE VERSÃO DO KERNEL DO LINUX ===
 #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
@@ -82,6 +112,7 @@ struct urb {};
 // === 7. TRADUÇÃO DE LOGS (PRINTK / PR_INFO) ===
 #define pr_info(fmt, ...)  IOLog(fmt, ##__VA_ARGS__)
 #define pr_err(fmt, ...)   IOLog(fmt, ##__VA_ARGS__)
+#define printk(fmt, ...)   printf(fmt, ##__VA_ARGS__) // Redireciona o printk pro printf do macOS
 
 // === 8. O TRUQUE DO VZALLOC E VFREE ===
 static inline void* apple_vzalloc(unsigned long size) {
