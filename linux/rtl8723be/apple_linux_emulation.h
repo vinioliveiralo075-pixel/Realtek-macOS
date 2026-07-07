@@ -5,10 +5,15 @@
 #include <libkern/libkern.h>
 #include <stddef.h>
 
-// --- 1. PROTEÇÃO CONTRA REDEFINIÇÃO ---
+// --- 1. MACROS ESSENCIAIS ---
 #ifndef offsetof
 #define offsetof(TYPE, MEMBER) __builtin_offsetof(TYPE, MEMBER)
 #endif
+
+#define __packed __attribute__((packed))
+#define BIT(x) (1ULL << (x))
+#define ETH_ALEN 6
+#define NUM_NL80211_BANDS 3
 
 // --- 2. TIPOS BÁSICOS E ENDIANNESS ---
 typedef unsigned char       u8;
@@ -21,7 +26,6 @@ typedef unsigned long long  u64;
 typedef signed long long    s64;
 typedef u64                 dma_addr_t;
 
-// Tipos de Endianness
 typedef u16 __le16;
 typedef u32 __le32;
 typedef u64 __le64;
@@ -29,12 +33,7 @@ typedef u16 __be16;
 typedef u32 __be32;
 typedef u64 __be64;
 
-// --- 3. MACROS DE COMPILAÇÃO ---
-#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
-#define LINUX_VERSION_CODE KERNEL_VERSION(4, 19, 0)
-#define __printf(a, b) __attribute__((format(printf, a, b)))
-
-// --- 4. ESTRUTURAS DE LISTA E MEMÓRIA ---
+// --- 3. ESTRUTURAS DE LISTA E MEMÓRIA ---
 #ifndef container_of
 #define container_of(ptr, type, member) ({ \
     const typeof( ((type *)0)->member ) *__mptr = (ptr); \
@@ -50,7 +49,15 @@ struct list_head {
          &pos->member != (head); \
          pos = container_of(pos->member.next, typeof(*pos), member))
 
-// --- 5. ENUMS DE REDE (NL80211) ---
+// --- 4. STUBS PARA ESTRUTURAS DO KERNEL ---
+struct mutex { int dummy; };
+struct seq_file { int dummy; };
+struct wiphy { int dummy; };
+struct regulatory_request { int dummy; };
+struct firmware { int dummy; };
+struct ieee80211_supported_band { int dummy; };
+
+// --- 5. ENUMS E SINCRONIZAÇÃO ---
 enum nl80211_iftype {
     NL80211_IFTYPE_UNSPECIFIED,
     NL80211_IFTYPE_ADHOC,
@@ -62,19 +69,12 @@ enum nl80211_iftype {
     NL80211_IFTYPE_P2P_DEVICE,
 };
 
-// --- 6. DUMMIES PARA SILENCIAR ERROS ---
-struct seq_file {};
-struct wiphy {};
-struct regulatory_request {};
-struct firmware {};
-
-// --- 7. SINCRONIZAÇÃO (EMULAÇÃO VAZIA) ---
 #define spin_lock_bh(lock)
 #define spin_unlock_bh(lock)
 #define rcu_read_lock()
 #define rcu_read_unlock()
 
-// --- 8. MEMÓRIA E I/O ---
+// --- 6. I/O E LOGS ---
 #define __iomem
 #define readb(addr)        (*(volatile u8 *)(addr))
 #define readw(addr)        (*(volatile u16 *)(addr))
@@ -83,9 +83,7 @@ struct firmware {};
 #define writew(val, addr)  (*(volatile u16 *)(addr) = (val))
 #define writel(val, addr)  (*(volatile u32 *)(addr) = (val))
 
-// --- 9. MISC ---
 #define GFP_KERNEL 0
-#define IOLog printf
 #define pr_info(fmt, ...)  printf(fmt, ##__VA_ARGS__)
 #define pr_err(fmt, ...)   printf(fmt, ##__VA_ARGS__)
 
