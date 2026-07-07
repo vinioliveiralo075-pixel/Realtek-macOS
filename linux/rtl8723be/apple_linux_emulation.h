@@ -5,7 +5,7 @@
 #include <libkern/libkern.h>
 #include <stddef.h>
 
-// --- 1. MACROS E PROTEÇÕES (PARA EVITAR REDEFINIÇÃO) ---
+// --- 1. MACROS E PROTEÇÕES ---
 #ifndef offsetof
 #define offsetof(TYPE, MEMBER) __builtin_offsetof(TYPE, MEMBER)
 #endif
@@ -21,13 +21,12 @@
 #define ETH_ALEN 6
 #endif
 
-#ifndef NUM_NL80211_BANDS
-#define NUM_NL80211_BANDS 3
-#endif
-
+// Evitar redefinição com o wifi.h
 #ifndef RTL_MAC80211_NUM_QUEUE
 #define RTL_MAC80211_NUM_QUEUE 4
 #endif
+
+#define IEEE80211_QOS_CTL_TID_MASK 0x000F
 
 // --- 2. PRINTK E VERSIONAMENTO ---
 #define printk printf
@@ -36,9 +35,6 @@
 
 #ifndef KERNEL_VERSION
 #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
-#endif
-#ifndef LINUX_VERSION_CODE
-#define LINUX_VERSION_CODE KERNEL_VERSION(4, 19, 0)
 #endif
 
 // --- 3. TIPOS ESTRUTURAIS ---
@@ -63,7 +59,11 @@ typedef u64 __be64;
 typedef struct { int counter; } atomic_t;
 typedef struct { int dummy; } spinlock_t;
 
-// --- 4. ESTRUTURAS DO KERNEL (STUBS) ---
+// --- 4. ESTRUTURAS DO KERNEL (COM CAMPOS NECESSÁRIOS) ---
+struct sk_buff { void *data; };
+struct ieee80211_hdr { u16 frame_control; };
+
+// Stubs simples
 struct mutex { int dummy; };
 struct seq_file { int dummy; };
 struct wiphy { int dummy; };
@@ -71,61 +71,33 @@ struct regulatory_request { int dummy; };
 struct firmware { int dummy; };
 struct ieee80211_supported_band { int dummy; };
 struct sk_buff_head { int dummy; };
-struct sk_buff { int dummy; };
 struct timer_list { int dummy; };
 struct urb { int dummy; };
 struct ieee80211_tx_queue_params { int dummy; };
 struct ieee80211_sta { int dummy; };
-struct ieee80211_hdr { int dummy; };
 struct ieee80211_tx_info { int dummy; };
 struct ieee80211_rx_status { int dummy; };
 struct tasklet_struct { int dummy; };
 struct delayed_work { int dummy; };
 struct work_struct { int dummy; };
 struct completion { int dummy; };
-
-// Estrutura principal que o driver precisa (adicionado o 'priv')
+struct pci_device_id { int dummy; };
 struct ieee80211_hw { void *priv; }; 
 
-// Enum de interface de rede
-enum nl80211_iftype {
-    NL80211_IFTYPE_UNSPECIFIED,
-    NL80211_IFTYPE_ADHOC,
-    NL80211_IFTYPE_STATION,
-    NL80211_IFTYPE_AP,
-    NL80211_IFTYPE_MESH_POINT,
-    NL80211_IFTYPE_P2P_CLIENT,
-    NL80211_IFTYPE_P2P_GO,
-    NL80211_IFTYPE_P2P_DEVICE,
-};
+// --- 5. FUNÇÕES FALSAS (STUBS) ---
+static inline u16 *ieee80211_get_qos_ctl(struct ieee80211_hdr *h) { static u16 tmp = 0; return &tmp; }
+static inline void *ieee80211_find_sta(void *v, u8 *b) { return NULL; }
+static inline struct ieee80211_hdr *rtl_get_hdr(struct sk_buff *skb) { return (struct ieee80211_hdr *)skb->data; }
 
-enum nl80211_channel_type { NL80211_CHAN_NO_HT, NL80211_CHAN_HT20, NL80211_CHAN_HT40MINUS, NL80211_CHAN_HT40PLUS };
+// --- 6. LOCKS E SINCRONIZAÇÃO (MACROS VAZIAS) ---
+#define spin_lock(lock)
+#define spin_unlock(lock)
+#define spin_lock_bh(lock)
+#define spin_unlock_bh(lock)
+#define rcu_read_lock()
+#define rcu_read_unlock()
 
-// --- 5. LÓGICA DE LISTA ---
-#ifndef container_of
-#define container_of(ptr, type, member) ({ \
-    const typeof( ((type *)0)->member ) *__mptr = (ptr); \
-    (type *)( (char *)__mptr - offsetof(type,member) );})
-#endif
-
-struct list_head {
-    struct list_head *next, *prev;
-};
-
-#define list_for_each_entry(pos, head, member) \
-    for (pos = container_of((head)->next, typeof(*pos), member); \
-         &pos->member != (head); \
-         pos = container_of(pos->member.next, typeof(*pos), member))
-
-// --- 6. MACROS DE I/O ---
-#define __iomem
-#define readb(addr)        (*(volatile u8 *)(addr))
-#define readw(addr)        (*(volatile u16 *)(addr))
-#define readl(addr)        (*(volatile u32 *)(addr))
-#define writeb(val, addr)  (*(volatile u8 *)(addr) = (val))
-#define writew(val, addr)  (*(volatile u16 *)(addr) = (val))
-#define writel(val, addr)  (*(volatile u32 *)(addr) = (val))
-
+// --- 7. LOGS E I/O ---
 #define GFP_KERNEL 0
 #define pr_info(fmt, ...)  printf(fmt, ##__VA_ARGS__)
 #define pr_err(fmt, ...)   printf(fmt, ##__VA_ARGS__)
