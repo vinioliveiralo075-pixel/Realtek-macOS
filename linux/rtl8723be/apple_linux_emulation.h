@@ -6,28 +6,20 @@
 #include <stddef.h>
 #include <sys/time.h>
 
-// --- 1. MACROS E DEFINIÇÕES BÁSICAS ---
+// --- 1. ATRIBUTOS E MACROS DE COMPATIBILIDADE ---
 #ifndef __packed
 #define __packed __attribute__((packed))
+#endif
+
+#ifndef __aligned
+#define __aligned(x) __attribute__((aligned(x)))
 #endif
 
 #ifndef BIT
 #define BIT(x) (1UL << (x))
 #endif
 
-#ifndef ETH_ALEN
-#define ETH_ALEN 6
-#endif
-
-#ifndef KERNEL_VERSION
-#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
-#endif
-
-#ifndef LINUX_VERSION_CODE
-#define LINUX_VERSION_CODE KERNEL_VERSION(4, 19, 0)
-#endif
-
-// --- 2. TIPOS DE DADOS ---
+// --- 2. TIPOS BÁSICOS DO KERNEL ---
 typedef unsigned char       u8;
 typedef unsigned short      u16;
 typedef unsigned int        u32;
@@ -40,40 +32,47 @@ typedef signed long long    s64;
 typedef u16 __le16;
 typedef u32 __le32;
 typedef u64 __le64;
-typedef u16 __be16;
-typedef u32 __be32;
-typedef u64 __be64;
 
-// --- 3. ESTRUTURAS DO KERNEL ---
-struct list_head { struct list_head *next, *prev; };
-struct sk_buff { void *data; };
-struct ieee80211_hdr { u16 frame_control; };
-struct mutex { int dummy; };
-struct sk_buff_head { int dummy; };
-struct ieee80211_supported_band { int dummy; };
+typedef long long           time64_t;
+typedef unsigned long       dma_addr_t;
+typedef struct { int counter; } atomic_t;
+typedef struct { int lock; } spinlock_t;
 
-// --- 4. DEFINIÇÕES DE REDE/HARDWARE ---
+// --- 3. DEFINIÇÕES DE REDE (COM PROTEÇÃO) ---
+#ifndef ETH_ALEN
+#define ETH_ALEN 6
+#endif
+
 #ifndef MAX_TID_COUNT
 #define MAX_TID_COUNT 8
 #endif
 
-#ifndef RTL_MAC80211_NUM_QUEUE
-#define RTL_MAC80211_NUM_QUEUE 4
-#endif
+// --- 4. STRUCTS E ENUMS (FORWARD DECLARATIONS) ---
+struct sk_buff { void *data; };
+struct sk_buff_head { void *dummy; };
+struct ieee80211_tx_queue_params { void *dummy; };
+struct ieee80211_sta { void *dummy; };
+struct ieee80211_tx_info { void *dummy; };
+struct ieee80211_rx_status { void *dummy; };
+struct urb { void *dummy; };
+struct mutex { void *dummy; };
 
-#ifndef IEEE80211_NUM_BANDS
-#define IEEE80211_NUM_BANDS 3
-#endif
+enum nl80211_iftype {
+    NL80211_IFTYPE_STATION = 2,
+    NL80211_IFTYPE_AP = 3
+};
 
-#ifndef NUM_NL80211_BANDS
-#define NUM_NL80211_BANDS IEEE80211_NUM_BANDS
+// --- 5. CORREÇÃO DA MACRO __printf ---
+#ifdef __printf
+#undef __printf
 #endif
+#define __printf(a, b) __attribute__((format(printf, a, b)))
 
-// --- 5. STUBS E FUNÇÕES DE COMPATIBILIDADE ---
+// --- 6. STUBS DE FUNÇÕES ---
 static inline void *skb_put(struct sk_buff *skb, unsigned int len) { return skb->data; }
 static inline void do_gettimeofday(struct timeval *tv) { tv->tv_sec = 0; tv->tv_usec = 0; }
 
-// --- 6. LOCKS E I/O (MACROS) ---
+// --- 7. I/O E LOCKS ---
 #define spin_lock(lock)
 #define spin_unlock(lock)
 #define spin_lock_bh(lock)
