@@ -28,6 +28,7 @@
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#ifndef APPLE
 #include <linux/sched.h>
 #include <linux/firmware.h>
 #include <linux/etherdevice.h>
@@ -36,6 +37,12 @@
 #include <net/mac80211.h>
 #include <linux/completion.h>
 #include <linux/version.h>
+#endif
+
+#ifdef APPLE
+#include "rtl8723be/apple_linux_emulation.h"
+#endif
+
 #include "rtw_sta_info.h"
 #include "debug.h"
 
