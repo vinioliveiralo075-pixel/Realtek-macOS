@@ -11,11 +11,24 @@
 #endif
 
 #define __packed __attribute__((packed))
+#define __aligned(x) __attribute__((aligned(x)))
 #define BIT(x) (1ULL << (x))
 #define ETH_ALEN 6
 #define NUM_NL80211_BANDS 3
 
-// --- 2. TIPOS BÁSICOS E ENDIANNESS ---
+// --- 2. VERSIONAMENTO E PRINTF ---
+#ifndef KERNEL_VERSION
+#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
+#endif
+#ifndef LINUX_VERSION_CODE
+#define LINUX_VERSION_CODE KERNEL_VERSION(4, 19, 0)
+#endif
+
+// Forçar a definição de __printf para evitar que o compilador a veja como um tipo
+#undef __printf
+#define __printf(a, b) __attribute__((format(printf, a, b)))
+
+// --- 3. TIPOS BÁSICOS ---
 typedef unsigned char       u8;
 typedef signed char         s8;
 typedef unsigned short      u16;
@@ -33,7 +46,7 @@ typedef u16 __be16;
 typedef u32 __be32;
 typedef u64 __be64;
 
-// --- 3. ESTRUTURAS DE LISTA E MEMÓRIA ---
+// --- 4. LISTAS E ESTRUTURAS ---
 #ifndef container_of
 #define container_of(ptr, type, member) ({ \
     const typeof( ((type *)0)->member ) *__mptr = (ptr); \
@@ -49,15 +62,16 @@ struct list_head {
          &pos->member != (head); \
          pos = container_of(pos->member.next, typeof(*pos), member))
 
-// --- 4. STUBS PARA ESTRUTURAS DO KERNEL ---
+// --- 5. STUBS PARA ESTRUTURAS (COMPATIBILIDADE) ---
 struct mutex { int dummy; };
 struct seq_file { int dummy; };
 struct wiphy { int dummy; };
 struct regulatory_request { int dummy; };
 struct firmware { int dummy; };
 struct ieee80211_supported_band { int dummy; };
+struct sk_buff_head { int dummy; };
 
-// --- 5. ENUMS E SINCRONIZAÇÃO ---
+// --- 6. ENUMS E LOCKS ---
 enum nl80211_iftype {
     NL80211_IFTYPE_UNSPECIFIED,
     NL80211_IFTYPE_ADHOC,
@@ -74,7 +88,7 @@ enum nl80211_iftype {
 #define rcu_read_lock()
 #define rcu_read_unlock()
 
-// --- 6. I/O E LOGS ---
+// --- 7. I/O E LOGS ---
 #define __iomem
 #define readb(addr)        (*(volatile u8 *)(addr))
 #define readw(addr)        (*(volatile u16 *)(addr))
