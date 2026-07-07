@@ -31,7 +31,9 @@ typedef long long time64_t;
 #define NUM_NL80211_BANDS 3
 #define RTL_MAC80211_NUM_QUEUE 5
 
-// === 3. ESTRUTURAS DE CONTROLE E CONCORRÊNCIA (Com tamanho definido) ===
+#define IEEE80211_QOS_CTL_TID_MASK 0x000f
+
+// === 3. ESTRUTURAS DE CONTROLE E CONCORRÊNCIA ===
 struct list_head {
     struct list_head *next, *prev;
 };
@@ -48,7 +50,6 @@ typedef struct {
     volatile int counter;
 } atomic_t;
 
-// Estruturas de Async / Timers emuladas para o gerenciamento de energia e watchdog
 struct timer_list {
     void *function;
     unsigned long expires;
@@ -78,23 +79,41 @@ struct completion {
     unsigned int done;
 };
 
-// === 4. DECLARAÇÕES FANTASMAS (Com suporte a membros internos) ===
+// === 4. DECLARAÇÕES E ESTRUTURAS DE REDE (Atualizadas) ===
 struct ieee80211_supported_band {};
 enum nl80211_iftype { NL80211_IFTYPE_UNSPECIFIED };
 enum nl80211_channel_type { NL80211_CHAN_NO_HT };
 struct sk_buff_head {};
 struct ieee80211_tx_queue_params {};
 struct ieee80211_sta {};
-struct sk_buff {};
-struct ieee80211_hdr {};
+struct ieee80211_hdr {
+    u16 frame_control;
+};
+struct sk_buff {
+    unsigned char *data;
+};
 struct ieee80211_tx_info {};
 struct ieee80211_rx_status {};
 struct urb {};
 
-// Adicionado o ponteiro priv para corrigir o erro 'no member named priv'
 struct ieee80211_hw {
     void *priv; 
+    void *vif;
 };
+
+struct rtl_mac {
+    void *vif;
+};
+
+// Declaração de funções nativas do subsistema de rede do Linux
+static inline u8* ieee80211_get_qos_ctl(struct ieee80211_hdr *hdr) {
+    static u8 dummy_qos = 0;
+    return &dummy_qos;
+}
+
+static inline struct ieee80211_sta* ieee80211_find_sta(void *vif, const u8 *bssid) {
+    return NULL;
+}
 
 // === 5. EMULADOR DE VERSÃO DO KERNEL DO LINUX ===
 #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
@@ -109,10 +128,10 @@ struct ieee80211_hw {
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif
 
-// === 7. TRADUÇÃO DE LOGS (PRINTK / PR_INFO) ===
+// === 7. TRADUÇÃO DE LOGS ===
 #define pr_info(fmt, ...)  IOLog(fmt, ##__VA_ARGS__)
 #define pr_err(fmt, ...)   IOLog(fmt, ##__VA_ARGS__)
-#define printk(fmt, ...)   printf(fmt, ##__VA_ARGS__) // Redireciona o printk pro printf do macOS
+#define printk(fmt, ...)   printf(fmt, ##__VA_ARGS__)
 
 // === 8. O TRUQUE DO VZALLOC E VFREE ===
 static inline void* apple_vzalloc(unsigned long size) {
@@ -132,7 +151,7 @@ static inline void apple_vfree(void* ptr) {
 #define vzalloc(size) apple_vzalloc(size)
 #define vfree(ptr)    apple_vfree(ptr)
 
-// === 9. NEUTRALIZADOR DE MACROS DO LINUX ===
+// === 9. NEUTRALIZADOR DE MACROS ===
 #define MODULE_LICENSE(x)
 #define MODULE_AUTHOR(x)
 #define MODULE_DESCRIPTION(x)
