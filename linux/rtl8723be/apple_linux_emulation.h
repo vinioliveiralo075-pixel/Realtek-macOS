@@ -23,7 +23,19 @@ typedef u64 __be64;
 typedef u64 dma_addr_t;
 typedef long long time64_t;
 
-// === 2. FERRAMENTAS DO COMPILADOR E REDE DO LINUX ===
+// Remove o modificador __iomem exclusivo do compilador do Linux
+#define __iomem
+
+// === 2. EMULAÇÃO DE LEITURA E ESCRITA PCI (MMIO) ===
+// Transforma os comandos do Linux em acessos diretos de ponteiro aceitos pelo Mac
+#define readb(addr)        (*(volatile u8 *)(addr))
+#define readw(addr)        (*(volatile u16 *)(addr))
+#define readl(addr)        (*(volatile u32 *)(addr))
+#define writeb(val, addr)  (*(volatile u8 *)(addr) = (val))
+#define writew(val, addr)  (*(volatile u16 *)(addr) = (val))
+#define writel(val, addr)  (*(volatile u32 *)(addr) = (val))
+
+// === 3. FERRAMENTAS DO COMPILADOR E REDE DO LINUX ===
 #define __packed __attribute__((packed))
 #define __aligned(x) __attribute__((aligned(x)))
 #define BIT(x) (1ULL << (x))
@@ -33,7 +45,7 @@ typedef long long time64_t;
 
 #define IEEE80211_QOS_CTL_TID_MASK 0x000f
 
-// === 3. ESTRUTURAS DE CONTROLE E CONCORRÊNCIA ===
+// === 4. ESTRUTURAS DE CONTROLE E CONCORRÊNCIA ===
 struct list_head {
     struct list_head *next, *prev;
 };
@@ -79,7 +91,7 @@ struct completion {
     unsigned int done;
 };
 
-// === 4. DECLARAÇÕES E ESTRUTURAS DE REDE (Atualizadas) ===
+// === 5. DECLARAÇÕES E ESTRUTURAS DE REDE ===
 struct ieee80211_supported_band {};
 enum nl80211_iftype { NL80211_IFTYPE_UNSPECIFIED };
 enum nl80211_channel_type { NL80211_CHAN_NO_HT };
@@ -95,13 +107,10 @@ struct sk_buff {
 struct ieee80211_tx_info {};
 struct ieee80211_rx_status {};
 struct urb {};
+struct pci_device_id {};
 
 struct ieee80211_hw {
     void *priv; 
-    void *vif;
-};
-
-struct rtl_mac {
     void *vif;
 };
 
@@ -115,11 +124,11 @@ static inline struct ieee80211_sta* ieee80211_find_sta(void *vif, const u8 *bssi
     return NULL;
 }
 
-// === 5. EMULADOR DE VERSÃO DO KERNEL DO LINUX ===
+// === 6. EMULADOR DE VERSÃO DO KERNEL DO LINUX ===
 #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
 #define LINUX_VERSION_CODE KERNEL_VERSION(4, 19, 0) 
 
-// === 6. TIPOS E MACROS ADICIONAIS ===
+// === 7. TIPOS E MACROS ADICIONAIS ===
 #define THIS_MODULE NULL
 #define GFP_KERNEL  0
 #define __printf(a, b) 
@@ -128,12 +137,12 @@ static inline struct ieee80211_sta* ieee80211_find_sta(void *vif, const u8 *bssi
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif
 
-// === 7. TRADUÇÃO DE LOGS ===
+// === 8. TRADUÇÃO DE LOGS ===
 #define pr_info(fmt, ...)  IOLog(fmt, ##__VA_ARGS__)
 #define pr_err(fmt, ...)   IOLog(fmt, ##__VA_ARGS__)
 #define printk(fmt, ...)   printf(fmt, ##__VA_ARGS__)
 
-// === 8. O TRUQUE DO VZALLOC E VFREE ===
+// === 9. O TRUQUE DO VZALLOC E VFREE ===
 static inline void* apple_vzalloc(unsigned long size) {
     void* mem = IOMallocZero(size + sizeof(unsigned long));
     if (!mem) return NULL;
@@ -151,7 +160,7 @@ static inline void apple_vfree(void* ptr) {
 #define vzalloc(size) apple_vzalloc(size)
 #define vfree(ptr)    apple_vfree(ptr)
 
-// === 9. NEUTRALIZADOR DE MACROS ===
+// === 10. NEUTRALIZADOR DE MACROS ===
 #define MODULE_LICENSE(x)
 #define MODULE_AUTHOR(x)
 #define MODULE_DESCRIPTION(x)
