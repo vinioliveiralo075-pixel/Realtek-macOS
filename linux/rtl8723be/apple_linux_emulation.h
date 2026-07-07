@@ -5,7 +5,7 @@
 #include <libkern/libkern.h>
 #include <stddef.h>
 
-// --- 1. MACROS ESSENCIAIS ---
+// --- 1. MACROS E TIPOS BÁSICOS ---
 #ifndef offsetof
 #define offsetof(TYPE, MEMBER) __builtin_offsetof(TYPE, MEMBER)
 #endif
@@ -15,6 +15,7 @@
 #define BIT(x) (1ULL << (x))
 #define ETH_ALEN 6
 #define NUM_NL80211_BANDS 3
+#define RTL_MAC80211_NUM_QUEUE 4
 
 // --- 2. VERSIONAMENTO E PRINTF ---
 #ifndef KERNEL_VERSION
@@ -24,11 +25,10 @@
 #define LINUX_VERSION_CODE KERNEL_VERSION(4, 19, 0)
 #endif
 
-// Forçar a definição de __printf para evitar que o compilador a veja como um tipo
 #undef __printf
 #define __printf(a, b) __attribute__((format(printf, a, b)))
 
-// --- 3. TIPOS BÁSICOS ---
+// --- 3. TIPOS ESPECÍFICOS DO KERNEL ---
 typedef unsigned char       u8;
 typedef signed char         s8;
 typedef unsigned short      u16;
@@ -38,6 +38,7 @@ typedef signed int          s32;
 typedef unsigned long long  u64;
 typedef signed long long    s64;
 typedef u64                 dma_addr_t;
+typedef long long           time64_t;
 
 typedef u16 __le16;
 typedef u32 __le32;
@@ -46,7 +47,29 @@ typedef u16 __be16;
 typedef u32 __be32;
 typedef u64 __be64;
 
-// --- 4. LISTAS E ESTRUTURAS ---
+typedef struct { int counter; } atomic_t;
+typedef struct { int dummy; } spinlock_t;
+
+// --- 4. ESTRUTURAS DO KERNEL (STUBS) ---
+struct mutex { int dummy; };
+struct seq_file { int dummy; };
+struct wiphy { int dummy; };
+struct regulatory_request { int dummy; };
+struct firmware { int dummy; };
+struct ieee80211_supported_band { int dummy; };
+struct sk_buff_head { int dummy; };
+struct sk_buff { int dummy; };
+struct timer_list { int dummy; };
+struct urb { int dummy; };
+struct rtl_stats { int dummy; };
+struct ieee80211_tx_queue_params { int dummy; };
+struct ieee80211_sta { int dummy; };
+struct ieee80211_hdr { int dummy; };
+struct ieee80211_tx_info { int dummy; };
+struct ieee80211_rx_status { int dummy; };
+struct ieee80211_hw { int dummy; };
+
+// --- 5. LISTAS E SINCRONIZAÇÃO ---
 #ifndef container_of
 #define container_of(ptr, type, member) ({ \
     const typeof( ((type *)0)->member ) *__mptr = (ptr); \
@@ -62,33 +85,12 @@ struct list_head {
          &pos->member != (head); \
          pos = container_of(pos->member.next, typeof(*pos), member))
 
-// --- 5. STUBS PARA ESTRUTURAS (COMPATIBILIDADE) ---
-struct mutex { int dummy; };
-struct seq_file { int dummy; };
-struct wiphy { int dummy; };
-struct regulatory_request { int dummy; };
-struct firmware { int dummy; };
-struct ieee80211_supported_band { int dummy; };
-struct sk_buff_head { int dummy; };
-
-// --- 6. ENUMS E LOCKS ---
-enum nl80211_iftype {
-    NL80211_IFTYPE_UNSPECIFIED,
-    NL80211_IFTYPE_ADHOC,
-    NL80211_IFTYPE_STATION,
-    NL80211_IFTYPE_AP,
-    NL80211_IFTYPE_MESH_POINT,
-    NL80211_IFTYPE_P2P_CLIENT,
-    NL80211_IFTYPE_P2P_GO,
-    NL80211_IFTYPE_P2P_DEVICE,
-};
-
 #define spin_lock_bh(lock)
 #define spin_unlock_bh(lock)
 #define rcu_read_lock()
 #define rcu_read_unlock()
 
-// --- 7. I/O E LOGS ---
+// --- 6. I/O E LOGS ---
 #define __iomem
 #define readb(addr)        (*(volatile u8 *)(addr))
 #define readw(addr)        (*(volatile u16 *)(addr))
