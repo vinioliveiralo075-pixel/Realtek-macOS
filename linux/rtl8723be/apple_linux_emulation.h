@@ -5,7 +5,35 @@
 #include <libkern/libkern.h>
 #include <stddef.h>
 
-// --- 1. MACROS DE PROTEÇÃO ---
+// --- 1. DEFINIÇÕES CRÍTICAS (PARA O WIFI.H) ---
+#ifndef KERNEL_VERSION
+#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
+#endif
+
+#ifndef LINUX_VERSION_CODE
+#define LINUX_VERSION_CODE KERNEL_VERSION(4, 19, 0)
+#endif
+
+#ifndef BIT
+#define BIT(x) (1UL << (x))
+#endif
+
+// --- 2. TIPOS DE ENDIANNESS ---
+typedef unsigned short __le16;
+typedef unsigned int   __le32;
+typedef unsigned long long __le64;
+
+// --- 3. TIPOS BÁSICOS ---
+typedef unsigned char       u8;
+typedef unsigned short      u16;
+typedef unsigned int        u32;
+typedef unsigned long long  u64;
+typedef signed char         s8;
+typedef signed short        s16;
+typedef signed int          s32;
+typedef signed long long    s64;
+
+// --- 4. PREVENÇÃO DE REDEFINIÇÃO ---
 #ifndef MAX_TID_COUNT
 #define MAX_TID_COUNT 8
 #endif
@@ -14,31 +42,19 @@
 #define __packed __attribute__((packed))
 #endif
 
-// --- 2. TIPOS DE DADOS ESSENCIAIS (O que o compilador pediu) ---
-typedef unsigned char       u8;
-typedef unsigned short      u16;
-typedef unsigned int        u32;
-typedef unsigned long long  u64;
-
-typedef signed char         s8;
-typedef signed short        s16;
-typedef signed int          s32;
-typedef signed long long    s64;
-
-// --- 3. CORREÇÃO DO __printf ---
-// Essa macro estava quebrando a sintaxe do seu debug.h
-#ifdef __printf
-#undef __printf
+#ifndef __aligned
+#define __aligned(x) __attribute__((aligned(x)))
 #endif
-#define __printf(a, b) __attribute__((format(printf, a, b)))
 
-// --- 4. ESTRUTURAS FALTANTES ---
+// --- 5. ESTRUTURAS BÁSICAS (DUMMIES) ---
 struct sk_buff { void *data; };
+struct list_head { struct list_head *next, *prev; };
+struct timer_list { int dummy; };
+struct tasklet_struct { int dummy; };
+struct ieee80211_supported_band { int dummy; };
+struct ieee80211_hdr { unsigned short frame_control; };
 
-// --- 5. STUBS DE FUNÇÕES ---
-static inline void *skb_put(struct sk_buff *skb, unsigned int len) { return skb->data; }
-
-// --- 6. I/O E LOCKS ---
+// --- 6. MACROS DE I/O E LOCKS ---
 #define spin_lock(lock)
 #define spin_unlock(lock)
 #define spin_lock_bh(lock)
