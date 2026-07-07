@@ -21,26 +21,41 @@ typedef u16 __be16;
 typedef u32 __be32;
 typedef u64 __be64;
 
-// === 2. EMULADOR DE VERSÃO DO KERNEL DO LINUX ===
-// Engana as checagens de versão do arquivo wifi.h
+// === 2. FERRAMENTAS DE REDE E COMPILADOR DO LINUX ===
+#define __packed __attribute__((packed)) // Corrige os erros de redefinição estrutural
+#define BIT(x) (1ULL << (x))             // Define a macro de manipulação de bits
+#define ETH_ALEN 6                       // Tamanho do endereço MAC (6 bytes)
+#define NUM_NL80211_BANDS 3              // Quantidade de bandas de frequência Wi-Fi
+
+// === 3. ESTRUTURAS DE CONTROLE ESSENCIAIS ===
+// Emula o sistema de listas encadeadas duplas do Linux
+struct list_head {
+    struct list_head *next, *prev;
+};
+
+// Emula a estrutura de trava (mutex) do Linux para compatibilidade de layout
+struct mutex {
+    void* owner;
+};
+
+// === 4. EMULADOR DE VERSÃO DO KERNEL DO LINUX ===
 #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
 #define LINUX_VERSION_CODE KERNEL_VERSION(4, 19, 0) 
 
-// === 3. TIPOS E MACROS ESSENCIAIS ===
+// === 5. TIPOS E MACROS ADICIONAIS ===
 #define THIS_MODULE NULL
 #define GFP_KERNEL  0
 #define __printf(a, b) // Neutraliza a macro de checagem do GCC para o Mac ignorar
 
-// Substituto para o linux/bug.h (calcula a quantidade de itens em uma lista)
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif
 
-// === 4. TRADUÇÃO DE LOGS (PRINTK / PR_INFO) ===
+// === 6. TRADUÇÃO DE LOGS (PRINTK / PR_INFO) ===
 #define pr_info(fmt, ...)  IOLog(fmt, ##__VA_ARGS__)
 #define pr_err(fmt, ...)   IOLog(fmt, ##__VA_ARGS__)
 
-// === 5. O TRUQUE DO VZALLOC E VFREE ===
+// === 7. O TRUQUE DO VZALLOC E VFREE ===
 static inline void* apple_vzalloc(unsigned long size) {
     void* mem = IOMallocZero(size + sizeof(unsigned long));
     if (!mem) return NULL;
@@ -58,7 +73,7 @@ static inline void apple_vfree(void* ptr) {
 #define vzalloc(size) apple_vzalloc(size)
 #define vfree(ptr)    apple_vfree(ptr)
 
-// === 6. NEUTRALIZADOR DE MACROS DO LINUX ===
+// === 8. NEUTRALIZADOR DE MACROS DO LINUX ===
 #define MODULE_LICENSE(x)
 #define MODULE_AUTHOR(x)
 #define MODULE_DESCRIPTION(x)
