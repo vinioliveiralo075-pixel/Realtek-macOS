@@ -5,19 +5,35 @@
 #include <libkern/libkern.h>
 #include <stddef.h>
 
-// --- 1. MACROS E TIPOS BÁSICOS ---
+// --- 1. MACROS E PROTEÇÕES (PARA EVITAR REDEFINIÇÃO) ---
 #ifndef offsetof
 #define offsetof(TYPE, MEMBER) __builtin_offsetof(TYPE, MEMBER)
 #endif
 
 #define __packed __attribute__((packed))
 #define __aligned(x) __attribute__((aligned(x)))
-#define BIT(x) (1ULL << (x))
-#define ETH_ALEN 6
-#define NUM_NL80211_BANDS 3
-#define RTL_MAC80211_NUM_QUEUE 4
 
-// --- 2. VERSIONAMENTO E PRINTF ---
+#ifndef BIT
+#define BIT(x) (1ULL << (x))
+#endif
+
+#ifndef ETH_ALEN
+#define ETH_ALEN 6
+#endif
+
+#ifndef NUM_NL80211_BANDS
+#define NUM_NL80211_BANDS 3
+#endif
+
+#ifndef RTL_MAC80211_NUM_QUEUE
+#define RTL_MAC80211_NUM_QUEUE 4
+#endif
+
+// --- 2. PRINTK E VERSIONAMENTO ---
+#define printk printf
+#undef __printf
+#define __printf(a, b) __attribute__((format(printf, a, b)))
+
 #ifndef KERNEL_VERSION
 #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
 #endif
@@ -25,10 +41,7 @@
 #define LINUX_VERSION_CODE KERNEL_VERSION(4, 19, 0)
 #endif
 
-#undef __printf
-#define __printf(a, b) __attribute__((format(printf, a, b)))
-
-// --- 3. TIPOS ESPECÍFICOS DO KERNEL ---
+// --- 3. TIPOS ESTRUTURAIS ---
 typedef unsigned char       u8;
 typedef signed char         s8;
 typedef unsigned short      u16;
@@ -61,15 +74,34 @@ struct sk_buff_head { int dummy; };
 struct sk_buff { int dummy; };
 struct timer_list { int dummy; };
 struct urb { int dummy; };
-struct rtl_stats { int dummy; };
 struct ieee80211_tx_queue_params { int dummy; };
 struct ieee80211_sta { int dummy; };
 struct ieee80211_hdr { int dummy; };
 struct ieee80211_tx_info { int dummy; };
 struct ieee80211_rx_status { int dummy; };
-struct ieee80211_hw { int dummy; };
+struct tasklet_struct { int dummy; };
+struct delayed_work { int dummy; };
+struct work_struct { int dummy; };
+struct completion { int dummy; };
 
-// --- 5. LISTAS E SINCRONIZAÇÃO ---
+// Estrutura principal que o driver precisa (adicionado o 'priv')
+struct ieee80211_hw { void *priv; }; 
+
+// Enum de interface de rede
+enum nl80211_iftype {
+    NL80211_IFTYPE_UNSPECIFIED,
+    NL80211_IFTYPE_ADHOC,
+    NL80211_IFTYPE_STATION,
+    NL80211_IFTYPE_AP,
+    NL80211_IFTYPE_MESH_POINT,
+    NL80211_IFTYPE_P2P_CLIENT,
+    NL80211_IFTYPE_P2P_GO,
+    NL80211_IFTYPE_P2P_DEVICE,
+};
+
+enum nl80211_channel_type { NL80211_CHAN_NO_HT, NL80211_CHAN_HT20, NL80211_CHAN_HT40MINUS, NL80211_CHAN_HT40PLUS };
+
+// --- 5. LÓGICA DE LISTA ---
 #ifndef container_of
 #define container_of(ptr, type, member) ({ \
     const typeof( ((type *)0)->member ) *__mptr = (ptr); \
@@ -85,12 +117,7 @@ struct list_head {
          &pos->member != (head); \
          pos = container_of(pos->member.next, typeof(*pos), member))
 
-#define spin_lock_bh(lock)
-#define spin_unlock_bh(lock)
-#define rcu_read_lock()
-#define rcu_read_unlock()
-
-// --- 6. I/O E LOGS ---
+// --- 6. MACROS DE I/O ---
 #define __iomem
 #define readb(addr)        (*(volatile u8 *)(addr))
 #define readw(addr)        (*(volatile u16 *)(addr))
@@ -103,4 +130,4 @@ struct list_head {
 #define pr_info(fmt, ...)  printf(fmt, ##__VA_ARGS__)
 #define pr_err(fmt, ...)   printf(fmt, ##__VA_ARGS__)
 
-#endif // APPLE_LINUX_EMULATION_H
+#endif
