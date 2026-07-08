@@ -1,5 +1,6 @@
 #include "RTL8723BE_MacDriver.hpp"
 #include <IOKit/IOLib.h>
+#include <IOKit/pci/IOPCIDevice.h>
 
 // === TRUQUE DA ANATOMIA: Importando o mundo em C puro ===
 extern "C" {
@@ -10,6 +11,10 @@ extern "C" {
 
 // Configura o registro da classe no Kernel do macOS
 OSDefineMetaClassAndStructors(RTL8723BE_MacDriver, IOEthernetController)
+
+// Variavel global ou de escopo para manter o mapa da memoria PCI vivo
+IOMemoryMap* mmioMap = nullptr;
+volatile uint8_t* mmioAddress = nullptr;
 
 // === 1. INICIALIZAÇÃO DA KEXT ===
 bool RTL8723BE_MacDriver::init(OSDictionary* dictionary) {
@@ -45,8 +50,18 @@ bool RTL8723BE_MacDriver::start(IOService* provider) {
         return false;
     }
 
-    // Ativa a eletricidade da placa PCI
+    // Ativa a eletricidade e permissões de barramento da placa PCI
     pciDevice->setBusMasterEnable(true);
+
+    // === BLINDAGEM ANTI-CRASH: Mapeamento de Memória I/O (MMIO) ===
+    // Mapeia o BAR 0 (registrador 0x10) para obtermos o endereço virtual estável
+    mmioMap = pciDevice->mapDeviceMemoryWithRegister(0x10);
+    if (mmioMap) {
+        mmioAddress = (volatile uint8_t*)mmioMap->getVirtualAddress();
+        IOLog("RTL8723BE_Mac: Memoria fisica MMIO mapeada com sucesso no endereco %p\n", mmioAddress);
+    } else {
+        IOLog("RTL8723BE_Mac: AVISO CRITICO: Falha ao mapear MMIO da placa Realtek!\n");
+    }
 
     IOLog("RTL8723BE_Mac: Ligando o sistema nervoso da Realtek...\n");
 
@@ -62,6 +77,10 @@ bool RTL8723BE_MacDriver::start(IOService* provider) {
             IOLog("RTL8723BE_Mac: Erro ao iniciar variáveis de software.\n");
         }
     }
+
+    // === FORÇA O STATUS DO LINK COMO ATIVO E VALIDO ===
+    // Evita que o macOS jogue a interface no limbo do estado "inactive"
+    setLinkStatus(kIONetworkLinkValid | kIONetworkLinkActive);
 
     return true;
 }
@@ -89,6 +108,12 @@ void RTL8723BE_MacDriver::stop(IOService* provider) {
     
     if (pciDevice) {
         pciDevice->setBusMasterEnable(false);
+    }
+    
+    // Desaloca o mapa de memória para evitar vazamento na RAM (Memory Leak)
+    if (mmioMap) {
+        mmioMap->release();
+        mmioMap = nullptr;
     }
     
     IOEthernetController::stop(provider);
