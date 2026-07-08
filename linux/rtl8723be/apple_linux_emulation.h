@@ -234,6 +234,7 @@ struct pci_device_id {
 #define MODULE_DESCRIPTION(name)
 #define MODULE_FIRMWARE(name)
 #define module_param_named(name, value, type, perm)
+#define MODULE_PARM_DESC(name, desc)
 
 // 3. Funções de Memória e Conversão
 #define vzalloc(size)        kzalloc(size, 0)
