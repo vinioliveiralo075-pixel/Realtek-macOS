@@ -5,7 +5,7 @@
 #include <IOKit/IOWorkLoop.h>
 
 // === INCLUSÃO DO FIRMWARE EM ARRAY (Buscando na pasta pai '../') ===
-#include "../firmware.h"
+#include "firmware.h"
 
 extern "C" {
     #include "apple_linux_emulation.h"
