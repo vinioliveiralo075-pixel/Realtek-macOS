@@ -31,6 +31,7 @@
 #include "def.h"
 #include "fw.h"
 #include "../rtl8723com/fw_common.h"
+#include "apple_linux_emulation.h"
 
 static bool _rtl8723be_check_fw_read_last_h2c(struct ieee80211_hw *hw,
 					      u8 boxnum)
