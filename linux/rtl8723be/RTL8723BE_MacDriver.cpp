@@ -51,11 +51,9 @@ bool RTL8723BE_MacDriver::start(IOService* provider) {
     IOLog("RTL8723BE_Mac: Ligando o sistema nervoso da Realtek...\n");
 
     // === AQUI O C++ DO MAC CHAMA O C DO LINUX ===
-    // Criamos uma estrutura simulada para passar para a Realtek
     struct ieee80211_hw* fake_hw = (struct ieee80211_hw*)IOMallocZero(sizeof(struct ieee80211_hw));
     
     if (fake_hw) {
-        // Chamada direta da função que você encontrou no sw.c!
         int resultado = rtl8723be_init_sw_vars(fake_hw);
         
         if (resultado == 0) {
@@ -66,6 +64,23 @@ bool RTL8723BE_MacDriver::start(IOService* provider) {
     }
 
     return true;
+}
+
+// === IMPLEMENTAÇÃO DO MÉTODO OBRIGATÓRIO DO MAC ===
+IOReturn RTL8723BE_MacDriver::getHardwareAddress(IOEthernetAddress * addrP) {
+    if (!addrP) {
+        return kIOReturnBadArgument;
+    }
+
+    // Injetando o endereço MAC real extraído do Windows: 70-8B-CD-C0-EB-14
+    addrP->bytes[0] = 0x70;
+    addrP->bytes[1] = 0x8B;
+    addrP->bytes[2] = 0xCD;
+    addrP->bytes[3] = 0xC0;
+    addrP->bytes[4] = 0xEB;
+    addrP->bytes[5] = 0x14;
+
+    return kIOReturnSuccess;
 }
 
 // === 4. DESLIGANDO O MOTOR ===
