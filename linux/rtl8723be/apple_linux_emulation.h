@@ -246,4 +246,27 @@ struct pci_device_id {
 
 // =======================================================
 
+// 5. Gerenciamento de Energia e Registro de Driver PCI (Linux -> Mac)
+#define KBUILD_MODNAME "rtl8723be"
+
+struct dev_pm_ops { int dummy; };
+#define SIMPLE_DEV_PM_OPS(name, suspend, resume) static const struct dev_pm_ops name = { 0 }
+
+struct mac_dummy_driver {
+    const struct dev_pm_ops *pm;
+};
+
+struct pci_driver {
+    const char *name;
+    const struct pci_device_id *id_table;
+    void *probe;
+    void *remove;
+    void *shutdown;
+    struct mac_dummy_driver driver;
+};
+
+#define module_pci_driver(driver)
+
+// =======================================================
+
 #endif // APPLE_LINUX_EMULATION_H
