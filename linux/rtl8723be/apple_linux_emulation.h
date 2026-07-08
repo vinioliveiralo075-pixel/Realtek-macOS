@@ -6,7 +6,19 @@
 #include <stddef.h>
 #include <sys/time.h>
 
-// --- 1. VERSÃO DO KERNEL E MACROS CRÍTICAS ---
+// --- 1. RESET DE ATRIBUTOS DO COMPILADOR (O Grande Erro!) ---
+// Remove os clones do macOS e força a sintaxe correta do GCC/Linux
+#ifdef __packed
+#undef __packed
+#endif
+#define __packed __attribute__((packed))
+
+#ifdef __aligned
+#undef __aligned
+#endif
+#define __aligned(x) __attribute__((aligned(x)))
+
+// --- 2. KERNEL VERSION & MACROS ---
 #ifndef KERNEL_VERSION
 #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
 #endif
@@ -19,15 +31,10 @@
 #define BIT(x) (1UL << (x))
 #endif
 
-#ifndef ETH_ALEN
 #define ETH_ALEN 6
-#endif
-
-#ifndef NUM_NL80211_BANDS
 #define NUM_NL80211_BANDS 3
-#endif
 
-// --- 2. TODOS OS TIPOS BÁSICOS (AGORA COMPLETO!) ---
+// --- 3. TODOS OS TIPOS BÁSICOS E ATÔMICOS ---
 typedef unsigned char       u8;
 typedef unsigned short      u16;
 typedef unsigned int        u32;
@@ -45,25 +52,30 @@ typedef unsigned long long  __le64;
 typedef long long           time64_t;
 typedef unsigned long       dma_addr_t;
 
-// --- 3. CORREÇÃO DA MACRO __printf ---
+// Tipos de sincronização do Linux que o wifi.h exige
+typedef struct { volatile int counter; } atomic_t;
+typedef struct { int dummy; } spinlock_t;
+
+// --- 4. CORREÇÃO DA MACRO __printf ---
 #ifdef __printf
 #undef __printf
 #endif
 #define __printf(a, b) __attribute__((format(printf, a, b)))
 
-// --- 4. ESTRUTURAS E ENUMS (DUMMIES) ---
+// --- 5. ESTRUTURAS E ENUMS (DUMMIES) ---
 struct list_head { struct list_head *next, *prev; };
 struct mutex { int dummy; };
 struct sk_buff { void *data; };
 struct sk_buff_head { int dummy; };
 struct timer_list { int dummy; };
 struct tasklet_struct { int dummy; };
+struct delayed_work { int dummy; }; // Corrigido: Incomplete type estrutural
 struct ieee80211_tx_queue_params { int dummy; };
 struct ieee80211_hdr { unsigned short frame_control; };
 struct ieee80211_supported_band { int dummy; };
 enum nl80211_iftype { NL80211_IFTYPE_STATION = 2, NL80211_IFTYPE_AP = 3 };
 
-// --- 5. STUBS DE FUNÇÕES ---
+// --- 6. STUBS DE FUNÇÕES ---
 #define spin_lock(lock)
 #define spin_unlock(lock)
 #define printk printf
