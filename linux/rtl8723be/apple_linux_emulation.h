@@ -229,7 +229,20 @@ static inline void *kzalloc(size_t size, int flags) { return IOMallocZero(size);
 #define spin_unlock_irqrestore(lock, flags) do { (void)(flags); } while(0)
 
 #define WARN_ONCE(cond, fmt, ...) do { (void)(cond); } while(0)
-#define ether_addr_copy(dst, src) memcpy(dst, src, ETH_ALEN)
+
+// Operações de endereços MAC clássicos da rede Linux
+static inline void ether_addr_copy(dst, src) { memcpy(dst, src, ETH_ALEN); }
+
+static inline int ether_addr_equal(const unsigned char *a, const unsigned char *b) {
+    return __builtin_memcmp(a, b, 6) == 0;
+}
+static inline int is_multicast_ether_addr(const unsigned char *addr) {
+    return (addr[0] & 0x01);
+}
+static inline int is_broadcast_ether_addr(const unsigned char *addr) {
+    return (addr[0] == 0xff && addr[1] == 0xff && addr[2] == 0xff &&
+            addr[3] == 0xff && addr[4] == 0xff && addr[5] == 0xff);
+}
 
 #define printk printf
 #define pr_info(fmt, ...)  printf(fmt, ##__VA_ARGS__)
@@ -346,10 +359,6 @@ struct pci_driver {
 #define cpu_to_le16(x) ((unsigned short)(x))
 #endif
 
-static inline int ether_addr_equal(const unsigned char *a, const unsigned char *b) {
-    return __builtin_memcmp(a, b, 6) == 0;
-}
-
 #define IEEE80211_FCTL_FTYPE       0x000c
 #define IEEE80211_FTYPE_CTL        0x0004
 #define IEEE80211_FCTL_TODS        0x0100
@@ -361,7 +370,10 @@ static inline int ether_addr_equal(const unsigned char *a, const unsigned char *
 
 #define IEEE80211_TX_CTL_AMPDU     0x00000002
 
+// Conjunto completo de chaves criptográficas (Cipher Suites) 802.11
 #define WLAN_CIPHER_SUITE_WEP40    0x000fac01
+#define WLAN_CIPHER_SUITE_TKIP     0x000fac02
+#define WLAN_CIPHER_SUITE_CCMP     0x000fac04
 #define WLAN_CIPHER_SUITE_WEP104   0x000fac05
 
 static inline int ieee80211_is_beacon(unsigned short fc) {
@@ -376,9 +388,16 @@ static inline int ieee80211_is_ctl(unsigned short fc) {
 static inline int ieee80211_is_nullfunc(unsigned short fc) {
     return (fc & 0x00fc) == 0x0048 || (fc & 0x00fc) == 0x00c8;
 }
+static inline int ieee80211_is_data_qos(unsigned short fc) {
+    return (fc & 0x000c) == 0x0008 && (fc & 0x0080);
+}
 
+// Extração de endereços de Origem (SA) e Destino (DA) nos frames de Wi-Fi
 static inline unsigned char *ieee80211_get_SA(void *hdr) {
     return ((unsigned char *)hdr) + 10;
+}
+static inline unsigned char *ieee80211_get_DA(void *hdr) {
+    return ((unsigned char *)hdr) + 4;
 }
 
 // Flags e definições de Criptografia adicionadas para o trx.c
