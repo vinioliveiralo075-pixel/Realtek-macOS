@@ -49,7 +49,7 @@
 #define IEEE80211_QOS_CTL_TID_MASK 0x000f
 
 #ifndef EOPNOTSUPP
-#define EOPNOTSUPP ENOTSUP  // Mapeia para o erro equivalente do macOS (45)
+#define EOPNOTSUPP ENOTSUP  
 #endif
 
 // Emulação do tempo do Linux (Jiffies e Delays)
@@ -61,7 +61,7 @@
 #define DMA_BIT_MASK(n)    (((n) == 64) ? ~0ULL : ((1ULL << (n)) - 1))
 #define PCI_DMA_TODEVICE   1
 
-// Local IRQ Flags (Stubs de controle de interrupção local)
+// Local IRQ Flags
 #define local_save_flags(flags) do { (void)(flags); } while(0)
 #define local_irq_enable()      do { } while(0)
 #define local_irq_restore(flags) do { (void)(flags); } while(0)
@@ -139,9 +139,14 @@ struct ieee80211_supported_band { int dummy; };
 
 struct ieee80211_hw { void *priv; void *vif; };
 
-// Definições internas de Station para corrigir o erro de tipo incompleto
+// Definições internas de Station corrigidas com suporte a sub-estruturas MCS
+struct ieee80211_mcs_cap {
+    u8 rx_mask[16];
+};
+
 struct ieee80211_ht_cap {
     u32 cap;
+    struct ieee80211_mcs_cap mcs; // Resolve os erros das linhas 2363 e 2364
 };
 
 struct ieee80211_sta {
