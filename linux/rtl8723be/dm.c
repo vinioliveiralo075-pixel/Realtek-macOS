@@ -35,6 +35,7 @@
 #include "fw.h"
 #include "trx.h"
 #include "../btcoexist/rtl_btc.h"
+#include "apple_linux_emulation.h"
 
 static const u32 ofdmswing_table[] = {
 	0x0b40002d, /* 0,  -15.0dB */
