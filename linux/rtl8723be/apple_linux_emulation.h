@@ -26,7 +26,7 @@
 #define writew(val, addr)  (*(volatile u16 *)(addr) = (val))
 #define writel(val, addr)  (*(volatile u32 *)(addr) = (val))
 
-// --- 2. KERNEL VERSION & MACROS ---
+// --- 2. KERNEL VERSION, TIMERS & MACROS ---
 #ifndef KERNEL_VERSION
 #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
 #endif
@@ -42,6 +42,15 @@
 #define ETH_ALEN 6
 #define NUM_NL80211_BANDS 3
 #define IEEE80211_QOS_CTL_TID_MASK 0x000f
+
+// Emulação do tempo do Linux (Jiffies e Delays)
+#define jiffies 0UL
+#define mdelay(x)          IODelay((x) * 1000)
+#define udelay(x)          IODelay(x)
+
+// Máscaras de DMA PCI
+#define DMA_BIT_MASK(n)    (((n) == 64) ? ~0ULL : ((1ULL << (n)) - 1))
+#define PCI_DMA_TODEVICE   1
 
 // --- 3. TODOS OS TIPOS BÁSICOS DO KERNEL ---
 typedef unsigned char       u8;
@@ -86,7 +95,12 @@ struct regulatory_request;
 // --- 6. ESTRUTURAS COMPLETAS DO LINUX ---
 struct list_head { struct list_head *next, *prev; };
 struct mutex { int dummy; };
-struct sk_buff { void *data; };
+
+struct sk_buff { 
+    void *data; 
+    unsigned int len; // Adicionado para corrigir skb->len
+};
+
 struct sk_buff_head { int dummy; };
 struct timer_list { int dummy; };
 struct tasklet_struct { int dummy; };
@@ -114,11 +128,9 @@ struct ieee80211_hw { void *priv; void *vif; };
 #define rcu_read_lock()
 #define rcu_read_unlock()
 
-// Tratamento seguro de macros IRQ que manipulam flags locais
 #define spin_lock_irqsave(lock, flags) do { (void)(flags); } while(0)
 #define spin_unlock_irqrestore(lock, flags) do { (void)(flags); } while(0)
 
-#define udelay(x)          IODelay(x)
 #define WARN_ONCE(cond, fmt, ...) do { (void)(cond); } while(0)
 #define ether_addr_copy(dst, src) memcpy(dst, src, ETH_ALEN)
 
@@ -132,8 +144,17 @@ struct ieee80211_hw { void *priv; void *vif; };
 static inline u8 *ieee80211_get_qos_ctl(const void *hdr) { static u8 dummy[2] = {0}; return dummy; }
 static inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const u8 *addr) { return NULL; }
 
-// Subsistema de rede (sk_buff) stubs
+// Funções de manipulação do subsistema de rede e timers (sk_buff / timers)
 static inline struct sk_buff *dev_alloc_skb(unsigned int length) { return NULL; }
 static inline void skb_put_data(struct sk_buff *skb, const void *data, unsigned int len) { }
+static inline int skb_queue_len(const struct sk_buff_head *list) { return 0; }
+static inline struct sk_buff *__skb_dequeue(struct sk_buff_head *list) { return NULL; }
+static inline void kfree_skb(struct sk_buff *skb) { }
+
+static inline int mod_timer(struct timer_list *timer, unsigned long expires) { return 0; }
+static inline unsigned long msecs_to_jiffies(const unsigned int m) { return m; }
+
+// PCI DMA Stubs
+static inline void pci_unmap_single(void *pdev, dma_addr_t dma_addr, size_t size, int direction) { }
 
 #endif // APPLE_LINUX_EMULATION_H
