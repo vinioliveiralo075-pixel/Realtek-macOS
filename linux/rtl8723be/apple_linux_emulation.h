@@ -125,6 +125,7 @@ struct mutex { int dummy; };
 struct sk_buff { 
     void *data; 
     unsigned int len; 
+    unsigned int priority; // [ADICIONADO PARA O TRX.C]
 };
 
 struct sk_buff_head { int dummy; };
@@ -134,7 +135,16 @@ struct delayed_work { int dummy; };
 struct work_struct { int dummy; };
 struct completion { int dummy; };
 struct ieee80211_tx_queue_params { int dummy; };
-struct ieee80211_hdr { unsigned short frame_control; };
+
+struct ieee80211_hdr { 
+    unsigned short frame_control;
+    unsigned short duration_id; // [ADICIONADO PARA O TRX.C]
+    unsigned char addr1[6];     // [ADICIONADO PARA O TRX.C]
+    unsigned char addr2[6];     // [ADICIONADO PARA O TRX.C]
+    unsigned char addr3[6];     // [ADICIONADO PARA O TRX.C]
+    unsigned short seq_ctrl;    // [ADICIONADO PARA O TRX.C]
+};
+
 struct ieee80211_supported_band { int dummy; };
 
 struct ieee80211_hw { void *priv; void *vif; };
@@ -194,6 +204,7 @@ static inline int mod_timer(struct timer_list *timer, unsigned long expires) { r
 static inline unsigned long msecs_to_jiffies(const unsigned int m) { return m; }
 
 static inline void pci_unmap_single(void *pdev, dma_addr_t dma_addr, size_t size, int direction) { }
+
 // --- GAMBIARRA DE COMPATIBILIDADE PARA TEMPO (JIFFIES) ---
 #include <sys/param.h> // Tenta puxar a definição de 'hz' do kernel do macOS
 
@@ -268,5 +279,45 @@ struct pci_driver {
 #define module_pci_driver(driver)
 
 // =======================================================
+// --- EMULAÇÕES PARA O TRX.C (SUPORTE WIRELESS 802.11) ---
+// =======================================================
+
+// 6. Conversões de Endianness (Byte Order) que faltavam
+#ifndef cpu_to_le32
+#define cpu_to_le32(x) ((unsigned int)(x))
+#endif
+#ifndef le32_to_cpu
+#define le32_to_cpu(x) ((unsigned int)(x))
+#endif
+#ifndef cpu_to_le16
+#define cpu_to_le16(x) ((unsigned short)(x))
+#endif
+
+// 7. Comparação de Endereço MAC
+static inline int ether_addr_equal(const unsigned char *a, const unsigned char *b) {
+    return __builtin_memcmp(a, b, 6) == 0;
+}
+
+// 8. Máscaras de Bits do Frame Control (802.11)
+#define IEEE80211_FCTL_FTYPE   0x000c
+#define IEEE80211_FTYPE_CTL    0x0004
+#define IEEE80211_FCTL_TODS    0x0100
+#define IEEE80211_FCTL_FROMDS  0x0200
+
+// 9. Checagem de Tipo de Pacote (Management, Control, Beacon)
+static inline int ieee80211_is_beacon(unsigned short fc) {
+    return (fc & 0x00fc) == 0x0080;
+}
+static inline int ieee80211_is_mgmt(unsigned short fc) {
+    return (fc & 0x000c) == 0x0000;
+}
+static inline int ieee80211_is_ctl(unsigned short fc) {
+    return (fc & 0x000c) == 0x0004;
+}
+
+// Retorna o endereço de origem (Source Address) de um frame 802.11 via offset estável
+static inline unsigned char *ieee80211_get_SA(void *hdr) {
+    return ((unsigned char *)hdr) + 10;
+}
 
 #endif // APPLE_LINUX_EMULATION_H
