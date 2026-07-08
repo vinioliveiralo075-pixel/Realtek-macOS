@@ -97,7 +97,6 @@ struct ieee80211_tx_queue_params { int dummy; };
 struct ieee80211_hdr { unsigned short frame_control; };
 struct ieee80211_supported_band { int dummy; };
 
-// Enum expandido com os modos Ad-Hoc e Mesh que o dm.c pede
 enum nl80211_iftype { 
     NL80211_IFTYPE_ADHOC = 1,
     NL80211_IFTYPE_STATION = 2, 
@@ -107,7 +106,7 @@ enum nl80211_iftype {
 
 struct ieee80211_hw { void *priv; void *vif; };
 
-// --- 7. STUBS DE FUNÇÕES E MACROS DE LOOP ---
+// --- 7. STUBS DE FUNÇÕES, IRQS E ALOCADORES ---
 #define spin_lock(lock)
 #define spin_unlock(lock)
 #define spin_lock_bh(lock)
@@ -115,15 +114,26 @@ struct ieee80211_hw { void *priv; void *vif; };
 #define rcu_read_lock()
 #define rcu_read_unlock()
 
+// Tratamento seguro de macros IRQ que manipulam flags locais
+#define spin_lock_irqsave(lock, flags) do { (void)(flags); } while(0)
+#define spin_unlock_irqrestore(lock, flags) do { (void)(flags); } while(0)
+
+#define udelay(x)          IODelay(x)
+#define WARN_ONCE(cond, fmt, ...) do { (void)(cond); } while(0)
+#define ether_addr_copy(dst, src) memcpy(dst, src, ETH_ALEN)
+
 #define printk printf
 #define pr_info(fmt, ...)  printf(fmt, ##__VA_ARGS__)
 #define pr_err(fmt, ...)   printf(fmt, ##__VA_ARGS__)
 
-// Burlar o loop de varredura do Linux de forma válida para a sintaxe do C
 #define list_for_each_entry(pos, head, member) \
     for (pos = NULL; pos != NULL; )
 
 static inline u8 *ieee80211_get_qos_ctl(const void *hdr) { static u8 dummy[2] = {0}; return dummy; }
 static inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const u8 *addr) { return NULL; }
+
+// Subsistema de rede (sk_buff) stubs
+static inline struct sk_buff *dev_alloc_skb(unsigned int length) { return NULL; }
+static inline void skb_put_data(struct sk_buff *skb, const void *data, unsigned int len) { }
 
 #endif // APPLE_LINUX_EMULATION_H
