@@ -27,7 +27,7 @@
 #define writew(val, addr)  (*(volatile u16 *)(addr) = (val))
 #define writel(val, addr)  (*(volatile u32 *)(addr) = (val))
 
-// --- 2. KERNEL VERSION, TIMERS & UTILS ---
+// --- 2. KERNEL VERSION, TIMERS, OPTIMIZATIONS & UTILS ---
 #ifndef KERNEL_VERSION
 #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
 #endif
@@ -35,6 +35,10 @@
 #ifndef LINUX_VERSION_CODE
 #define LINUX_VERSION_CODE KERNEL_VERSION(4, 19, 0)
 #endif
+
+// Macros de Otimização do Compilador (Likely/Unlikely)
+#define likely(x)       __builtin_expect(!!(x), 1)
+#define unlikely(x)     __builtin_expect(!!(x), 0)
 
 #ifndef BIT
 #define BIT(x) (1UL << (x))
@@ -96,7 +100,6 @@ typedef struct { int dummy; } spinlock_t;
 // --- 5. PRÉ-DECLARAÇÕES E ENUMS DO SUBSISTEMA DE REDE ---
 enum nl80211_channel_type { NL80211_CONN_LESS_PRIMARY };
 enum ieee80211_smps_mode { IEEE80211_SMPS_DISABLED };
-struct ieee80211_tx_info;
 struct seq_file;
 struct pci_device_id;
 struct urb;
@@ -166,13 +169,16 @@ struct ieee80211_hw {
     struct ieee80211_hw_conf conf;
 };
 
-// Estrutura de status de recepção de pacotes (preenchida para o trx.c)
+// Estrutura de status de recepção de pacotes atualizada para o trx.c
 struct ieee80211_rx_status {
     unsigned int freq;
     unsigned int band;
     unsigned int flag;
     unsigned char bw;
     unsigned char encoding;
+    u8 rate_idx;
+    u64 mactime;
+    s8 signal;
 };
 
 // Definições internas de Station corrigidas com suporte a sub-estruturas MCS
@@ -183,6 +189,7 @@ struct ieee80211_mcs_cap {
 struct ieee80211_ht_cap {
     u32 cap;
     struct ieee80211_mcs_cap mcs; 
+    u8 ampdu_density;
 };
 
 struct ieee80211_sta {
@@ -190,6 +197,20 @@ struct ieee80211_sta {
     void *drv_priv;
     u16 aid;
     u32 supp_rates[16];
+};
+
+// Estruturas de chaves de segurança e criptografia de hardware
+struct ieee80211_key_conf {
+    u32 cipher;
+};
+
+struct ieee80211_tx_control {
+    struct ieee80211_key_conf *hw_key;
+};
+
+struct ieee80211_tx_info {
+    u32 flags;
+    struct ieee80211_tx_control control;
 };
 
 // --- 7. STUBS DE FUNÇÕES, ALOCADORES E MEMÓRIA ---
@@ -226,10 +247,22 @@ static inline int skb_queue_len(const struct sk_buff_head *list) { return 0; }
 static inline struct sk_buff *__skb_dequeue(struct sk_buff_head *list) { return NULL; }
 static inline void kfree_skb(struct sk_buff *skb) { }
 
+// Implementação básica do skb_push para gerenciar ponteiros do buffer de dados
+static inline void *skb_push(struct sk_buff *skb, unsigned int len) {
+    if (skb) {
+        skb->data = (void *)((char *)skb->data - len);
+        skb->len += len;
+    }
+    return skb ? skb->data : NULL;
+}
+
 static inline int mod_timer(struct timer_list *timer, unsigned long expires) { return 0; }
 static inline unsigned long msecs_to_jiffies(const unsigned int m) { return m; }
 
+// Mapeamentos de barramento PCI de rede do Linux
+static inline dma_addr_t pci_map_single(void *pdev, void *ptr, size_t size, int direction) { return 0; }
 static inline void pci_unmap_single(void *pdev, dma_addr_t dma_addr, size_t size, int direction) { }
+static inline int pci_dma_mapping_error(void *pdev, dma_addr_t dma_addr) { return 0; }
 
 // --- GAMBIARRA DE COMPATIBILIDADE PARA TEMPO (JIFFIES) ---
 #include <sys/param.h> 
@@ -317,10 +350,19 @@ static inline int ether_addr_equal(const unsigned char *a, const unsigned char *
     return __builtin_memcmp(a, b, 6) == 0;
 }
 
-#define IEEE80211_FCTL_FTYPE   0x000c
-#define IEEE80211_FTYPE_CTL    0x0004
-#define IEEE80211_FCTL_TODS    0x0100
-#define IEEE80211_FCTL_FROMDS  0x0200
+#define IEEE80211_FCTL_FTYPE       0x000c
+#define IEEE80211_FTYPE_CTL        0x0004
+#define IEEE80211_FCTL_TODS        0x0100
+#define IEEE80211_FCTL_FROMDS      0x0200
+#define IEEE80211_FCTL_MOREFRAGS   0x0400
+
+#define IEEE80211_SCTL_FRAG        0x000f
+#define IEEE80211_SCTL_SEQ         0xfff0
+
+#define IEEE80211_TX_CTL_AMPDU     0x00000002
+
+#define WLAN_CIPHER_SUITE_WEP40    0x000fac01
+#define WLAN_CIPHER_SUITE_WEP104   0x000fac05
 
 static inline int ieee80211_is_beacon(unsigned short fc) {
     return (fc & 0x00fc) == 0x0080;
@@ -330,6 +372,9 @@ static inline int ieee80211_is_mgmt(unsigned short fc) {
 }
 static inline int ieee80211_is_ctl(unsigned short fc) {
     return (fc & 0x000c) == 0x0004;
+}
+static inline int ieee80211_is_nullfunc(unsigned short fc) {
+    return (fc & 0x00fc) == 0x0048 || (fc & 0x00fc) == 0x00c8;
 }
 
 static inline unsigned char *ieee80211_get_SA(void *hdr) {
