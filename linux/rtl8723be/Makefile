@@ -3,11 +3,11 @@ SDKPATH := $(shell xcrun --show-sdk-path)
 CC = clang
 CXX = clang++
 
-# Adicionado -I../.. para permitir que subpastas vizinhas se comuniquem perfeitamente
-CFLAGS = -mkernel -arch x86_64 -fno-builtin -g -O2 -DKERNEL -D_KERNEL -DKERNEL_PRIVATE -DAPPLE -std=gnu99 \
+# Adicionado -w para silenciar os avisos e -I../.. para permitir que subpastas vizinhas se comuniquem perfeitamente
+CFLAGS = -mkernel -arch x86_64 -fno-builtin -g -O2 -DKERNEL -D_KERNEL -DKERNEL_PRIVATE -DAPPLE -std=gnu99 -w \
          -I. -I.. -I../.. -I$(SDKPATH)/System/Library/Frameworks/Kernel.framework/Headers
 
-CXXFLAGS = -mkernel -arch x86_64 -fno-builtin -fno-rtti -fno-exceptions -g -O2 -DKERNEL -D_KERNEL -DKERNEL_PRIVATE -DAPPLE -std=c++11 \
+CXXFLAGS = -mkernel -arch x86_64 -fno-builtin -fno-rtti -fno-exceptions -g -O2 -DKERNEL -D_KERNEL -DKERNEL_PRIVATE -DAPPLE -std=c++11 -w \
            -I. -I.. -I../.. -I$(SDKPATH)/System/Library/Frameworks/Kernel.framework/Headers
 
 LDFLAGS = -mkernel -arch x86_64 -Xlinker -kext -nostdlib -lkmodc++ -lkmod -lcc_kext
