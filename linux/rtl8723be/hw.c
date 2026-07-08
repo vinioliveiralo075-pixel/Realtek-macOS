@@ -23,6 +23,7 @@
  *
  *****************************************************************************/
 
+#include "apple_linux_emulation.h"
 #include "../wifi.h"
 #include "../efuse.h"
 #include "../base.h"
@@ -43,7 +44,6 @@
 #include "../pwrseqcmd.h"
 #include "pwrseq.h"
 #include "../btcoexist/rtl_btc.h"
-#include "apple_linux_emulation.h"
 
 #define LLT_CONFIG	5
 
