@@ -194,5 +194,19 @@ static inline int mod_timer(struct timer_list *timer, unsigned long expires) { r
 static inline unsigned long msecs_to_jiffies(const unsigned int m) { return m; }
 
 static inline void pci_unmap_single(void *pdev, dma_addr_t dma_addr, size_t size, int direction) { }
+// --- GAMBIARRA DE COMPATIBILIDADE PARA TEMPO (JIFFIES) ---
+#include <sys/param.h> // Tenta puxar a definição de 'hz' do kernel do macOS
+
+#ifndef hz
+  #define hz 100 // Fallback caso o XNU não exponha o hz textualmente
+#endif
+
+#ifndef jiffies_to_msecs
+  #define jiffies_to_msecs(x) ((unsigned int)((x) * 1000 / hz))
+#endif
+
+#ifndef msecs_to_jiffies
+  #define msecs_to_jiffies(x) ((unsigned long)((x) * hz / 1000))
+#endif
 
 #endif // APPLE_LINUX_EMULATION_H
