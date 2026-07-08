@@ -19,7 +19,7 @@
     <key>CFBundleVersion</key>
     <string>1.0.0</string>
     
-    <!-- === AQUI O MAC MATEIA A SUA PLACA REALTEK === -->
+    <!-- === AQUI O MAC MAPEIA A SUA PLACA REALTEK === -->
     <key>IOKitPersonalities</key>
     <dict>
         <key>Realtek8723BE</key>
@@ -46,6 +46,8 @@
         <key>com.apple.iokit.IOPCIFamily</key>
         <string>1.0.0b1</string>
         <key>com.apple.kpi.iokit</key>
+        <string>8.0.0</string>
+        <key>com.apple.kpi.libkern</key> <!-- ADICIONADO: Essencial para funções de alocação de memória -->
         <string>8.0.0</string>
         <key>com.apple.kpi.libm</key>
         <string>8.0.0</string>
