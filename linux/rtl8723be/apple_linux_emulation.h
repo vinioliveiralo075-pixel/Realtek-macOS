@@ -7,6 +7,15 @@
 #include <sys/time.h>
 #include <sys/errno.h>
 
+// --- BYPASS DE SEGURANÇA XNU (BOUNDS SAFETY / FORTIFY SOURCE) ---
+// Ignora os wrappers estritos de tamanho do macOS para aceitar o código legado do Linux
+#undef memcpy
+#define memcpy(dst, src, n) __builtin_memcpy(dst, src, n)
+#undef memset
+#define memset(dst, val, n) __builtin_memset(dst, val, n)
+#undef memmove
+#define memmove(dst, src, n) __builtin_memmove(dst, src, n)
+
 // --- 1. ATRIBUTOS DE MEMÓRIA E ACESSO DE I/O ---
 #ifdef __packed
 #undef __packed
@@ -169,7 +178,7 @@ struct ieee80211_hw {
     struct ieee80211_hw_conf conf;
 };
 
-// Estrutura de status de recepção de pacotes atualizada para o trx.c
+// Estrutura de status de recepção de pacotes
 struct ieee80211_rx_status {
     unsigned int freq;
     unsigned int band;
@@ -230,8 +239,8 @@ static inline void *kzalloc(size_t size, int flags) { return IOMallocZero(size);
 
 #define WARN_ONCE(cond, fmt, ...) do { (void)(cond); } while(0)
 
-// Operações de endereços MAC clássicos da rede Linux
-static inline void ether_addr_copy(dst, src) { memcpy(dst, src, ETH_ALEN); }
+// Operações de endereços MAC da rede Linux (Tipagem corrigida para void*)
+static inline void ether_addr_copy(void *dst, const void *src) { __builtin_memcpy(dst, src, ETH_ALEN); }
 
 static inline int ether_addr_equal(const unsigned char *a, const unsigned char *b) {
     return __builtin_memcmp(a, b, 6) == 0;
