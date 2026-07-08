@@ -97,7 +97,6 @@ typedef struct { int dummy; } spinlock_t;
 enum nl80211_channel_type { NL80211_CONN_LESS_PRIMARY };
 enum ieee80211_smps_mode { IEEE80211_SMPS_DISABLED };
 struct ieee80211_tx_info;
-struct ieee80211_rx_status;
 struct seq_file;
 struct pci_device_id;
 struct urb;
@@ -125,7 +124,7 @@ struct mutex { int dummy; };
 struct sk_buff { 
     void *data; 
     unsigned int len; 
-    unsigned int priority; // [ADICIONADO PARA O TRX.C]
+    unsigned int priority; 
 };
 
 struct sk_buff_head { int dummy; };
@@ -138,16 +137,43 @@ struct ieee80211_tx_queue_params { int dummy; };
 
 struct ieee80211_hdr { 
     unsigned short frame_control;
-    unsigned short duration_id; // [ADICIONADO PARA O TRX.C]
-    unsigned char addr1[6];     // [ADICIONADO PARA O TRX.C]
-    unsigned char addr2[6];     // [ADICIONADO PARA O TRX.C]
-    unsigned char addr3[6];     // [ADICIONADO PARA O TRX.C]
-    unsigned short seq_ctrl;    // [ADICIONADO PARA O TRX.C]
+    unsigned short duration_id; 
+    unsigned char addr1[6];     
+    unsigned char addr2[6];     
+    unsigned char addr3[6];     
+    unsigned short seq_ctrl;    
 };
 
 struct ieee80211_supported_band { int dummy; };
 
-struct ieee80211_hw { void *priv; void *vif; };
+// Estruturas de canais e frequências para o trx.c
+struct ieee80211_chan {
+    unsigned int center_freq;
+    unsigned int band;
+};
+
+struct ieee80211_chandef {
+    struct ieee80211_chan *chan;
+};
+
+struct ieee80211_hw_conf {
+    struct ieee80211_chandef chandef;
+};
+
+struct ieee80211_hw { 
+    void *priv; 
+    void *vif; 
+    struct ieee80211_hw_conf conf;
+};
+
+// Estrutura de status de recepção de pacotes (preenchida para o trx.c)
+struct ieee80211_rx_status {
+    unsigned int freq;
+    unsigned int band;
+    unsigned int flag;
+    unsigned char bw;
+    unsigned char encoding;
+};
 
 // Definições internas de Station corrigidas com suporte a sub-estruturas MCS
 struct ieee80211_mcs_cap {
@@ -156,7 +182,7 @@ struct ieee80211_mcs_cap {
 
 struct ieee80211_ht_cap {
     u32 cap;
-    struct ieee80211_mcs_cap mcs; // Resolve os erros das linhas 2363 e 2364
+    struct ieee80211_mcs_cap mcs; 
 };
 
 struct ieee80211_sta {
@@ -206,10 +232,10 @@ static inline unsigned long msecs_to_jiffies(const unsigned int m) { return m; }
 static inline void pci_unmap_single(void *pdev, dma_addr_t dma_addr, size_t size, int direction) { }
 
 // --- GAMBIARRA DE COMPATIBILIDADE PARA TEMPO (JIFFIES) ---
-#include <sys/param.h> // Tenta puxar a definição de 'hz' do kernel do macOS
+#include <sys/param.h> 
 
 #ifndef hz
-  #define hz 100 // Fallback caso o XNU não exponha o hz textualmente
+  #define hz 100 
 #endif
 
 #ifndef jiffies_to_msecs
@@ -224,7 +250,6 @@ static inline void pci_unmap_single(void *pdev, dma_addr_t dma_addr, size_t size
 // --- EMULAÇÕES PARA CORRIGIR O SW.C (LINUX -> MAC) ---
 // =======================================================
 
-// 1. Tipos e Macros PCI
 typedef unsigned long kernel_ulong_t;
 
 struct pci_device_id {
@@ -237,7 +262,6 @@ struct pci_device_id {
 #define PCI_VENDOR_ID_REALTEK 0x10ec
 #define PCI_ANY_ID            (~0U)
 
-// 2. Metadados e Parâmetros de Módulo do Linux (Inofensivos no Mac)
 #define THIS_MODULE          NULL
 #define MODULE_DEVICE_TABLE(type, name)
 #define MODULE_AUTHOR(name)
@@ -247,17 +271,14 @@ struct pci_device_id {
 #define module_param_named(name, value, type, perm)
 #define MODULE_PARM_DESC(name, desc)
 
-// 3. Funções de Memória e Conversão
 #define vzalloc(size)        kzalloc(size, 0)
 #define vfree(ptr)           do { if(ptr) { /* stub */ } } while(0)
 #define le16_to_cpu(x)       (x)
 
-// 4. Stub para Firmware
 #define request_firmware_nowait(...) (0)
 
 // =======================================================
 
-// 5. Gerenciamento de Energia e Registro de Driver PCI (Linux -> Mac)
 #define KBUILD_MODNAME "rtl8723be"
 
 struct dev_pm_ops { int dummy; };
@@ -282,7 +303,6 @@ struct pci_driver {
 // --- EMULAÇÕES PARA O TRX.C (SUPORTE WIRELESS 802.11) ---
 // =======================================================
 
-// 6. Conversões de Endianness (Byte Order) que faltavam
 #ifndef cpu_to_le32
 #define cpu_to_le32(x) ((unsigned int)(x))
 #endif
@@ -293,18 +313,15 @@ struct pci_driver {
 #define cpu_to_le16(x) ((unsigned short)(x))
 #endif
 
-// 7. Comparação de Endereço MAC
 static inline int ether_addr_equal(const unsigned char *a, const unsigned char *b) {
     return __builtin_memcmp(a, b, 6) == 0;
 }
 
-// 8. Máscaras de Bits do Frame Control (802.11)
 #define IEEE80211_FCTL_FTYPE   0x000c
 #define IEEE80211_FTYPE_CTL    0x0004
 #define IEEE80211_FCTL_TODS    0x0100
 #define IEEE80211_FCTL_FROMDS  0x0200
 
-// 9. Checagem de Tipo de Pacote (Management, Control, Beacon)
 static inline int ieee80211_is_beacon(unsigned short fc) {
     return (fc & 0x00fc) == 0x0080;
 }
@@ -315,9 +332,22 @@ static inline int ieee80211_is_ctl(unsigned short fc) {
     return (fc & 0x000c) == 0x0004;
 }
 
-// Retorna o endereço de origem (Source Address) de um frame 802.11 via offset estável
 static inline unsigned char *ieee80211_get_SA(void *hdr) {
     return ((unsigned char *)hdr) + 10;
+}
+
+// Flags e definições de Criptografia adicionadas para o trx.c
+#define RX_FLAG_FAILED_FCS_CRC  0x0001
+#define RX_FLAG_MACTIME_START   0x0002
+#define RX_FLAG_DECRYPTED       0x0004
+#define RATE_INFO_BW_40         2
+#define RX_ENC_HT               1
+
+static inline int _ieee80211_is_robust_mgmt_frame(const void *hdr) { 
+    return 0; 
+}
+static inline int ieee80211_has_protected(unsigned short fc) { 
+    return (fc & 0x4000) ? 1 : 0; 
 }
 
 #endif // APPLE_LINUX_EMULATION_H
