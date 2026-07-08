@@ -209,4 +209,36 @@ static inline void pci_unmap_single(void *pdev, dma_addr_t dma_addr, size_t size
   #define msecs_to_jiffies(x) ((unsigned long)((x) * hz / 1000))
 #endif
 
+// --- Emulações adicionadas para corrigir o sw.c ---
+
+// 1. Tipos e Macros PCI que estavam faltando
+typedef unsigned long kernel_ulong_t;
+
+struct pci_device_id {
+    unsigned int vendor, device;
+    unsigned int subvendor, subdevice;
+    unsigned int class, class_mask;
+    kernel_ulong_t driver_data;
+};
+
+#define PCI_VENDOR_ID_REALTEK 0x10ec
+#define PCI_ANY_ID            (~0U)
+
+// 2. Macros de Metadados do Módulo Linux (Inofensivos no macOS)
+#define THIS_MODULE          NULL
+#define MODULE_DEVICE_TABLE(type, name)
+#define MODULE_AUTHOR(name)
+
+// 3. Funções de Alocação de Memória Virtual do Linux
+// Como estamos no x86_64/macOS, podemos mapear o vzalloc direto para o kzalloc que já funciona
+#define vzalloc(size)        kzalloc(size, 0)
+#define vfree(ptr)           do { if(ptr) { /* stub para compilação */ } } while(0)
+
+// 4. Conversão de Endianness (Como o macOS no x86_64 já é Little Endian, le16_to_cpu não faz nada)
+#define le16_to_cpu(x)       (x)
+
+// 5. Stub para o carregador de firmware assíncrono do Linux
+// (Garante a compilação, a lógica de injetar o firmware precisará ser vista depois via Resource no Info.plist)
+#define request_firmware_nowait(...) (0)
+
 #endif // APPLE_LINUX_EMULATION_H
