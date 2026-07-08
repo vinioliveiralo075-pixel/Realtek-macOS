@@ -310,7 +310,12 @@ typedef unsigned long kernel_ulong_t;
 struct pci_device_id {
     unsigned int vendor, device;
     unsigned int subvendor, subdevice;
-    unsigned int class, class_mask;
+    #ifdef __cplusplus
+    unsigned int pci_class; 
+    #else
+    unsigned int class;
+    #endif
+    unsigned int class_mask;
     kernel_ulong_t driver_data;
 };
 
