@@ -3,6 +3,7 @@
 #include <IOKit/pci/IOPCIDevice.h>
 #include <IOKit/IOInterruptEventSource.h>
 #include <IOKit/IOWorkLoop.h>
+#include <sys/mbuf.h>
 
 // === INCLUSÃO DO FIRMWARE EM ARRAY (Buscando na pasta pai '../') ===
 #include "firmware.h"
