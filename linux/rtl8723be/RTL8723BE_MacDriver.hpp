@@ -18,6 +18,9 @@ public:
     virtual IOService* probe(IOService* provider, SInt32* score) override;
     virtual bool start(IOService* provider) override;
     virtual void stop(IOService* provider) override;
+    
+    // O CORRETO DO TRANSPLANTE: Adicionado para o macOS ler o endereço MAC da placa
+    virtual IOReturn getHardwareAddress(IOEthernetAddress * addrP) override;
 };
 
 #endif // RTL8723BE_MACDRIVER_HPP
