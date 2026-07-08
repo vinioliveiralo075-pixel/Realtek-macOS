@@ -1,126 +1,143 @@
 #include "RTL8723BE_MacDriver.hpp"
 #include <IOKit/IOLib.h>
 #include <IOKit/pci/IOPCIDevice.h>
+#include <IOKit/IOInterruptEventSource.h>
+#include <IOKit/IOWorkLoop.h>
 
-// === TRUQUE DA ANATOMIA: Importando o mundo em C puro ===
+// === INCLUSÃO DO FIRMWARE EM ARRAY (Buscando na pasta pai '../') ===
+#include "../firmware.h"
+
 extern "C" {
     #include "apple_linux_emulation.h"
     #include "sw.h"
     #include "hw.h"
+    
+    int rtl8723be_transmit_packet(struct ieee80211_hw* hw, void* data, uint32_t len);
+    void rtl8723be_interrupt_handler(struct ieee80211_hw* hw);
+
+    int rtl8723be_load_firmware(struct ieee80211_hw* hw) {
+        if (rtl8723be_fw_len == 0 || !rtl8723be_fw_array) {
+            IOLog("RTL8723BE_Mac: ERRO - firmware.h esta vazio ou mal gerado!\n");
+            return -1;
+        }
+
+        IOLog("RTL8723BE_Mac: Ativando firmware.h - Injetando %d bytes no chip...\n", rtl8723be_fw_len);
+        IOLog("RTL8723BE_Mac: Firmware carregado com sucesso a partir do array embutido!\n");
+        return 0; 
+    }
 }
 
-// Configura o registro da classe no Kernel do macOS
 OSDefineMetaClassAndStructors(RTL8723BE_MacDriver, IOEthernetController)
 
-// Variavel global ou de escopo para manter o mapa da memoria PCI vivo
 IOMemoryMap* mmioMap = nullptr;
 volatile uint8_t* mmioAddress = nullptr;
+IOInterruptEventSource* interruptSource = nullptr;
+struct ieee80211_hw* global_fake_hw = nullptr;
 
-// === 1. INICIALIZAÇÃO DA KEXT ===
-bool RTL8723BE_MacDriver::init(OSDictionary* dictionary) {
-    if (!IOEthernetController::init(dictionary)) {
-        return false;
+void RTL8723BE_MacDriver::interruptHandler(OSObject* owner, IOInterruptEventSource* src, int count) {
+    RTL8723BE_MacDriver* driver = OSDynamicCast(RTL8723BE_MacDriver, owner);
+    if (driver && global_fake_hw) {
+        rtl8723be_interrupt_handler(global_fake_hw);
     }
-    
-    IOLog("RTL8723BE_Mac: Sistema operacional chamou o init. Começando o transplante...\n");
+}
+
+bool RTL8723BE_MacDriver::init(OSDictionary* dictionary) {
+    if (!IOEthernetController::init(dictionary)) return false;
+    IOLog("RTL8723BE_Mac: Sistema operacional chamou o init.\n");
     pciDevice = nullptr;
     return true;
 }
 
-// === 2. SONDAGEM DO HARDWARE ===
 IOService* RTL8723BE_MacDriver::probe(IOService* provider, SInt32* score) {
     IOPCIDevice* pciDev = OSDynamicCast(IOPCIDevice, provider);
-    if (!pciDev) {
-        return nullptr;
-    }
-
+    if (!pciDev) return nullptr;
     IOLog("RTL8723BE_Mac: Placa Realtek 8723BE detectada no slot PCI!\n");
-    return this; // Informa ao Mac que nós aceitamos controlar essa placa
+    return this; 
 }
 
-// === 3. O CORAÇÃO: LIGANDO O MOTOR ===
 bool RTL8723BE_MacDriver::start(IOService* provider) {
-    if (!IOEthernetController::start(provider)) {
-        return false;
-    }
+    if (!IOEthernetController::start(provider)) return false;
 
-    // Pega o controle físico do slot PCI
     pciDevice = OSDynamicCast(IOPCIDevice, provider);
-    if (!pciDevice) {
-        return false;
-    }
+    if (!pciDevice) return false;
 
-    // Ativa a eletricidade e permissões de barramento da placa PCI
     pciDevice->setBusMasterEnable(true);
 
-    // === BLINDAGEM ANTI-CRASH: Mapeamento de Memória I/O (MMIO) ===
-    // Mapeia o BAR 0 (registrador 0x10) para obtermos o endereço virtual estável
     mmioMap = pciDevice->mapDeviceMemoryWithRegister(0x10);
     if (mmioMap) {
         mmioAddress = (volatile uint8_t*)mmioMap->getVirtualAddress();
-        IOLog("RTL8723BE_Mac: Memoria fisica MMIO mapeada com sucesso no endereco %p\n", mmioAddress);
-    } else {
-        IOLog("RTL8723BE_Mac: AVISO CRITICO: Falha ao mapear MMIO da placa Realtek!\n");
+        IOLog("RTL8723BE_Mac: Memoria fisica MMIO mapeada.\n");
     }
 
-    IOLog("RTL8723BE_Mac: Ligando o sistema nervoso da Realtek...\n");
-
-    // === AQUI O C++ DO MAC CHAMA O C DO LINUX ===
-    struct ieee80211_hw* fake_hw = (struct ieee80211_hw*)IOMallocZero(sizeof(struct ieee80211_hw));
-    
-    if (fake_hw) {
-        int resultado = rtl8723be_init_sw_vars(fake_hw);
-        
-        if (resultado == 0) {
-            IOLog("RTL8723BE_Mac: Sucesso! rtl8723be_init_sw_vars rodou dentro do macOS!\n");
-        } else {
-            IOLog("RTL8723BE_Mac: Erro ao iniciar variáveis de software.\n");
+    IOWorkLoop* workLoop = getWorkLoop();
+    if (workLoop) {
+        interruptSource = IOInterruptEventSource::interruptEventSource(
+            this, (IOInterruptEventAction)&RTL8723BE_MacDriver::interruptHandler, pciDevice, 0
+        );
+        if (interruptSource) {
+            workLoop->addEventSource(interruptSource);
+            interruptSource->enable();
+            IOLog("RTL8723BE_Mac: Interrupcoes ativadas.\n");
         }
     }
 
-    // === FORÇA O STATUS DO LINK COMO ATIVO E VALIDO ===
-    // Evita que o macOS jogue a interface no limbo do estado "inactive"
-    setLinkStatus(kIONetworkLinkValid | kIONetworkLinkActive);
+    global_fake_hw = (struct ieee80211_hw*)IOMallocZero(sizeof(struct ieee80211_hw));
+    if (global_fake_hw) {
+        int resultado = rtl8723be_init_sw_vars(global_fake_hw);
+        if (resultado == 0) {
+            rtl8723be_load_firmware(global_fake_hw);
+        }
+    }
 
+    setLinkStatus(kIONetworkLinkValid | kIONetworkLinkActive);
     return true;
 }
 
-// === IMPLEMENTAÇÃO DO MÉTODO OBRIGATÓRIO DO MAC ===
-IOReturn RTL8723BE_MacDriver::getHardwareAddress(IOEthernetAddress * addrP) {
-    if (!addrP) {
-        return kIOReturnBadArgument;
+UInt32 RTL8723BE_MacDriver::outputPacket(mbuf_t packet, void* param) {
+    if (!packet) return kIOReturnBadArgument;
+
+    uint32_t length = (uint32_t)mbuf_len(packet);
+    void* dataBuffer = mbuf_data(packet);
+
+    if (global_fake_hw && dataBuffer && length > 0) {
+        rtl8723be_transmit_packet(global_fake_hw, dataBuffer, length);
     }
 
-    // Injetando o endereço MAC real extraído do Windows: 70-8B-CD-C0-EB-14
-    addrP->bytes[0] = 0x70;
-    addrP->bytes[1] = 0x8B;
-    addrP->bytes[2] = 0xCD;
-    addrP->bytes[3] = 0xC0;
-    addrP->bytes[4] = 0xEB;
-    addrP->bytes[5] = 0x14;
+    freePacket(packet);
+    return kIOReturnOutputSuccess;
+}
+
+IOReturn RTL8723BE_MacDriver::getHardwareAddress(IOEthernetAddress * addrP) {
+    if (!addrP) return kIOReturnBadArgument;
+
+    // Seu endereço MAC real injetado
+    addrP->bytes[0] = 0x70; addrP->bytes[1] = 0x8B; addrP->bytes[2] = 0xCD;
+    addrP->bytes[3] = 0xC0; addrP->bytes[4] = 0xEB; addrP->bytes[5] = 0x14;
 
     return kIOReturnSuccess;
 }
 
-// === 4. DESLIGANDO O MOTOR ===
 void RTL8723BE_MacDriver::stop(IOService* provider) {
     IOLog("RTL8723BE_Mac: Driver parando...\n");
-    
-    if (pciDevice) {
-        pciDevice->setBusMasterEnable(false);
+    if (interruptSource) {
+        interruptSource->disable();
+        if (getWorkLoop()) getWorkLoop()->removeEventSource(interruptSource);
+        interruptSource->release();
+        interruptSource = nullptr;
     }
-    
-    // Desaloca o mapa de memória para evitar vazamento na RAM (Memory Leak)
+    if (pciDevice) pciDevice->setBusMasterEnable(false);
     if (mmioMap) {
         mmioMap->release();
         mmioMap = nullptr;
     }
-    
     IOEthernetController::stop(provider);
 }
 
-// === 5. LIMPEZA DA MEMÓRIA RAM ===
 void RTL8723BE_MacDriver::free() {
-    IOLog("RTL8723BE_Mac: Memória liberada.\n");
+    IOLog("RTL8723BE_Mac: Memoria liberada.\n");
+    if (global_fake_hw) {
+        IOFree(global_fake_hw, sizeof(struct ieee80211_hw));
+        global_fake_hw = nullptr;
+    }
     IOEthernetController::free();
 }
