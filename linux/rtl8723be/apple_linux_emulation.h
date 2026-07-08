@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include <sys/time.h>
 
-// --- 1. ATRIBUTOS DE MEMÓRIA E ACESSO DE I/O (FIX PCI.H) ---
+// --- 1. ATRIBUTOS DE MEMÓRIA E ACESSO DE I/O ---
 #ifdef __packed
 #undef __packed
 #endif
@@ -70,7 +70,7 @@ typedef struct { int dummy; } spinlock_t;
 #endif
 #define __printf(a, b) __attribute__((format(printf, a, b)))
 
-// --- 5. PRÉ-DECLARAÇÕES PARA LIMPAR ENUMS/WARNINGS ---
+// --- 5. PRÉ-DECLARAÇÕES PARA LIMPAR WARNINGS DE VISIBILIDADE ---
 enum nl80211_channel_type { NL80211_CONN_LESS_PRIMARY };
 enum ieee80211_smps_mode { IEEE80211_SMPS_DISABLED };
 struct ieee80211_sta;
@@ -79,8 +79,11 @@ struct ieee80211_rx_status;
 struct seq_file;
 struct pci_device_id;
 struct urb;
+struct firmware;
+struct wiphy;
+struct regulatory_request;
 
-// --- 6. ESTRUTURAS COMPLETAS DO LINUX (Para alocação em structs) ---
+// --- 6. ESTRUTURAS COMPLETAS DO LINUX ---
 struct list_head { struct list_head *next, *prev; };
 struct mutex { int dummy; };
 struct sk_buff { void *data; };
@@ -93,17 +96,32 @@ struct completion { int dummy; };
 struct ieee80211_tx_queue_params { int dummy; };
 struct ieee80211_hdr { unsigned short frame_control; };
 struct ieee80211_supported_band { int dummy; };
-enum nl80211_iftype { NL80211_IFTYPE_STATION = 2, NL80211_IFTYPE_AP = 3 };
 
-// Definição real para hw->priv e mac->vif funcionarem
+// Enum expandido com os modos Ad-Hoc e Mesh que o dm.c pede
+enum nl80211_iftype { 
+    NL80211_IFTYPE_ADHOC = 1,
+    NL80211_IFTYPE_STATION = 2, 
+    NL80211_IFTYPE_AP = 3,
+    NL80211_IFTYPE_MESH_POINT = 7
+};
+
 struct ieee80211_hw { void *priv; void *vif; };
 
-// --- 7. STUBS DE FUNÇÕES DE REDE ---
+// --- 7. STUBS DE FUNÇÕES E MACROS DE LOOP ---
 #define spin_lock(lock)
 #define spin_unlock(lock)
+#define spin_lock_bh(lock)
+#define spin_unlock_bh(lock)
+#define rcu_read_lock()
+#define rcu_read_unlock()
+
 #define printk printf
 #define pr_info(fmt, ...)  printf(fmt, ##__VA_ARGS__)
 #define pr_err(fmt, ...)   printf(fmt, ##__VA_ARGS__)
+
+// Burlar o loop de varredura do Linux de forma válida para a sintaxe do C
+#define list_for_each_entry(pos, head, member) \
+    for (pos = NULL; pos != NULL; )
 
 static inline u8 *ieee80211_get_qos_ctl(const void *hdr) { static u8 dummy[2] = {0}; return dummy; }
 static inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const u8 *addr) { return NULL; }
