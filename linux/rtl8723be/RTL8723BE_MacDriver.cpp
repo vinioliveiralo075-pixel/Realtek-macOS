@@ -104,7 +104,7 @@ UInt32 RTL8723BE_MacDriver::outputPacket(mbuf_t packet, void* param) {
     }
 
     freePacket(packet);
-    return kIOReturnOutputSuccess;
+    return kIOReturnSuccess;
 }
 
 IOReturn RTL8723BE_MacDriver::getHardwareAddress(IOEthernetAddress * addrP) {
