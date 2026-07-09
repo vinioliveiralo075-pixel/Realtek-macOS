@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.txt">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key>
@@ -28,7 +28,7 @@
             <string>RTL8723BE_MacDriver</string>
             <key>IOMatchCategory</key>
             <string>RTL8723BE_MacDriver</string>
-            <key>IOPCIPrimaryMatch</key>
+            <key>IOPPCIPrimaryMatch</key>
             <string>0xB72310EC</string>
             <key>IOProviderClass</key>
             <string>IOPCIDevice</string>
@@ -36,7 +36,7 @@
     </dict>
     <key>OSBundleLibraries</key>
     <dict>
-        <key>com.apple.iokit.IONetworkFamily</key>
+        <key>com.apple.iokit.IONetworkingFamily</key>
         <string>1.0.0b1</string>
         <key>com.apple.iokit.IOPCIFamily</key>
         <string>1.0.0b1</string>
