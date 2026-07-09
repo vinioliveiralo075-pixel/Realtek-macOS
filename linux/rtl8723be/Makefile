@@ -21,8 +21,9 @@ KEXT_NAME = RTL8723BE_MacDriver
 KEXT_BUNDLE = $(KEXT_NAME).kext
 KEXT_BINARY = $(KEXT_BUNDLE)/Contents/MacOS/$(KEXT_NAME)
 
-C_SRCS = $(wildcard *.c)
-CPP_SRCS = $(wildcard *.cpp)
+# ALTERAÇÃO AQUI: Agora busca os códigos na pasta atual e na pasta anterior (..)
+C_SRCS = $(wildcard *.c) $(wildcard ../*.c)
+CPP_SRCS = $(wildcard *.cpp) $(wildcard ../*.cpp)
 OBJS = $(C_SRCS:.c=.o) $(CPP_SRCS:.cpp=.o)
 
 all: $(KEXT_BINARY)
@@ -39,5 +40,6 @@ $(KEXT_BINARY): $(OBJS)
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+# ALTERAÇÃO AQUI: Limpa os arquivos .o de ambas as pastas para não dar conflito
 clean:
-	rm -rf *.o $(KEXT_BUNDLE)
+	rm -rf *.o ../*.o $(KEXT_BUNDLE)
