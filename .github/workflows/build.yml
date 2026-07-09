@@ -1,4 +1,5 @@
 name: Build RTL8723BE Kext
+
 on:
   push:
     branches: [ main, master ]
@@ -16,12 +17,13 @@ jobs:
       - name: Compilar Kext para Monterey e Ventura
         run: |
           cd linux/rtl8723be
-          # Configura o caminho do SDK do macOS e a flag APPLE
-          export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
-          export MACOSX_DEPLOYMENT_TARGET=12.0
-          
-          # Compila com suporte ao IOKit e emulação ativada
-          make CFLAGS="-target x86_64-apple-macos12 -DAPPLE -isysroot $SDKROOT" LDFLAGS="-target x86_64-apple-macos12 -isysroot $SDKROOT"
+          # Limpeza prévia para garantir que não haja restos de compilações anteriores
+          make clean
+          # Executa o make
+          make
+        env:
+          # Passamos a variável pro Makefile entender o SDK atual
+          SDKPATH: $(xcrun --sdk macosx --show-sdk-path)
 
       - name: Compactar Kext Corretamente
         run: |
