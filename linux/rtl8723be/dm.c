@@ -1313,4 +1313,3 @@ kern_return_t RTL8723BE_stop(kmod_info_t *ki, void *data) {
 // Este é o "KMOD_INFO" que o macOS estava gritando que não achava
 // O primeiro argumento deve ser o ID do seu pacote, igual ao que está no Info.plist
 KMOD_EXPLICIT_DECL(com.vini.RTL8723BE-MacDriver, "1.0.0", RTL8723BE_start, RTL8723BE_stop)
-}
