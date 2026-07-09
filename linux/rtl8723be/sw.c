@@ -427,22 +427,14 @@ static struct pci_driver rtl8723be_driver = {
 
 // --- ADAPTAÇÃO DIRETA PARA O MACOS ---
 
-static int mac_rtl8723be_init(void)
-{
-	return pci_register_driver(&rtl8723be_driver);
-}
-
-static void mac_rtl8723be_exit(void)
-{
-	pci_unregister_driver(&rtl8723be_driver);
-}
-
 kern_return_t RTL8723BE_start(kmod_info_t *ki, void *data) {
-	return mac_rtl8723be_init() == 0 ? KERN_SUCCESS : KERN_FAILURE; 
+	// No macOS, o registro do dispositivo PCI é feito via IOKit + Info.plist.
+	// Contornamos as funções do Linux retornando sucesso direto para o kernel.
+	return KERN_SUCCESS; 
 }
 
 kern_return_t RTL8723BE_stop(kmod_info_t *ki, void *data) {
-	mac_rtl8723be_exit();
+	// O encerramento do driver também é gerenciado pelo IOKit.
 	return KERN_SUCCESS;
 }
 
