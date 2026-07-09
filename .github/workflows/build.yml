@@ -1,5 +1,4 @@
 name: Build RTL8723BE Kext
-
 on:
   push:
     branches: [ main, master ]
@@ -10,20 +9,23 @@ on:
 jobs:
   build-driver:
     runs-on: macos-latest
-
     steps:
       - name: Checkout do Código
         uses: actions/checkout@v4
 
-      # 2. Agora o robô entra primeiro em linux e depois em rtl8723be
       - name: Compilar Kext
         run: |
           cd linux/rtl8723be
           make
 
-      # 3. Atualizado o caminho do upload também
+      # Criamos o zip manualmente preservando a estrutura da pasta .kext
+      - name: Compactar Kext Corretamente
+        run: |
+          cd linux/rtl8723be
+          zip -r ../../RTL8723BE_MacDriver.kext.zip RTL8723BE_MacDriver.kext
+
       - name: Upload do Artefato (Kext)
         uses: actions/upload-artifact@v4
         with:
-          name: RTL8723BE_MacDriver_Kext
-          path: linux/rtl8723be/RTL8723BE_MacDriver.kext
+          name: RTL8723BE_MacDriver_Release
+          path: RTL8723BE_MacDriver.kext.zip
