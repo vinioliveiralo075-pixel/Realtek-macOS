@@ -4,8 +4,6 @@
 #include <IOKit/IOInterruptEventSource.h>
 #include <IOKit/IOWorkLoop.h>
 #include <sys/mbuf.h>
-
-// === INCLUSÃO DO FIRMWARE EM ARRAY (Buscando na pasta pai '../') ===
 #include "firmware.h"
 
 extern "C" {
@@ -21,19 +19,66 @@ extern "C" {
             IOLog("RTL8723BE_Mac: ERRO - firmware.h esta vazio ou mal gerado!\n");
             return -1;
         }
-
-        IOLog("RTL8723BE_Mac: Ativando firmware.h - Injetando %d bytes no chip...\n", rtl8723be_fw_len);
-        IOLog("RTL8723BE_Mac: Firmware carregado com sucesso a partir do array embutido!\n");
+        IOLog("RTL8723BE_Mac: Injetando %d bytes no chip...\n", rtl8723be_fw_len);
         return 0; 
     }
 }
 
+// Registro das MetaClasses no IOKit
 OSDefineMetaClassAndStructors(RTL8723BE_MacDriver, IOEthernetController)
+OSDefineMetaClassAndStructors(itlwm, IOService)
+OSDefineMetaClassAndStructors(itlwmUserClient, IOUserClient)
 
 IOMemoryMap* mmioMap = nullptr;
 volatile uint8_t* mmioAddress = nullptr;
 IOInterruptEventSource* interruptSource = nullptr;
 struct ieee80211_hw* global_fake_hw = nullptr;
+itlwm* global_fake_itlwm = nullptr; // Ponteiro para o nosso disfarce
+
+// === IMPLEMENTAÇÃO DO DISFARCE (itlwm & UserClient) ===
+
+bool itlwm::start(IOService* provider) {
+    if (!IOService::start(provider)) return false;
+    return true;
+}
+
+IOReturn itlwm::newUserClient(task_t owningTask, void* securityID, UInt32 type, OSDictionary* properties, IOUserClient** handler) {
+    itlwmUserClient* client = new itlwmUserClient;
+    if (!client) return kIOReturnNoMemory;
+    if (!client->init()) { client->release(); return kIOReturnError; }
+    if (!client->attach(this)) { client->release(); return kIOReturnError; }
+    if (!client->start(this)) { client->detach(this); client->release(); return kIOReturnError; }
+    
+    *handler = client;
+    IOLog("RTL8723BE_Mac: HeliPort se conectou com sucesso ao nosso disfarce!\n");
+    return kIOReturnSuccess;
+}
+
+bool itlwmUserClient::start(IOService* provider) {
+    if (!IOUserClient::start(provider)) return false;
+    fProvider = provider;
+    return true;
+}
+
+IOReturn itlwmUserClient::clientClose() {
+    terminate();
+    return kIOReturnSuccess;
+}
+
+// Essa função roda SEMPRE que você clica em algo no HeliPort!
+IOReturn itlwmUserClient::externalMethod(uint32_t selector, IOExternalMethodArguments* arguments,
+                                        IOExternalMethodDispatch* dispatch, OSObject* target, void* reference) {
+    IOLog("RTL8723BE_Mac: HeliPort enviou o comando (Selector): %d\n", selector);
+    
+    if (arguments && arguments->structureInput && arguments->structureInputSize > 0) {
+        IOLog("RTL8723BE_Mac: Dados brutos recebidos do HeliPort! Tamanho: %d bytes\n", arguments->structureInputSize);
+        // Aqui no futuro vamos decodificar o SSID e a Senha que o HeliPort mandou!
+    }
+    
+    return kIOReturnSuccess;
+}
+
+// === IMPLEMENTAÇÃO DO SEU DRIVER REALTEK ===
 
 void RTL8723BE_MacDriver::interruptHandler(OSObject* owner, IOInterruptEventSource* src, int count) {
     RTL8723BE_MacDriver* driver = OSDynamicCast(RTL8723BE_MacDriver, owner);
@@ -61,7 +106,6 @@ bool RTL8723BE_MacDriver::start(IOService* provider) {
 
     pciDevice = OSDynamicCast(IOPCIDevice, provider);
     if (!pciDevice) return false;
-
     pciDevice->setBusMasterEnable(true);
 
     mmioMap = pciDevice->mapDeviceMemoryWithRegister(0x10);
@@ -90,13 +134,23 @@ bool RTL8723BE_MacDriver::start(IOService* provider) {
         }
     }
 
+    // ATIVAÇÃO DO DISFARCE: Criando o serviço fantasma 'itlwm'
+    global_fake_itlwm = new itlwm;
+    if (global_fake_itlwm) {
+        if (global_fake_itlwm->init()) {
+            global_fake_itlwm->attach(this);
+            global_fake_itlwm->start(this);
+            global_fake_itlwm->registerService(); // Publica o nome para o HeliPort achar
+            IOLog("RTL8723BE_Mac: Servico fantasma 'itlwm' registrado no sistema!\n");
+        }
+    }
+
     setLinkStatus(kIONetworkLinkValid | kIONetworkLinkActive);
     return true;
 }
 
 UInt32 RTL8723BE_MacDriver::outputPacket(mbuf_t packet, void* param) {
     if (!packet) return kIOReturnBadArgument;
-
     uint32_t length = (uint32_t)mbuf_len(packet);
     void* dataBuffer = mbuf_data(packet);
 
@@ -110,16 +164,17 @@ UInt32 RTL8723BE_MacDriver::outputPacket(mbuf_t packet, void* param) {
 
 IOReturn RTL8723BE_MacDriver::getHardwareAddress(IOEthernetAddress * addrP) {
     if (!addrP) return kIOReturnBadArgument;
-
-    // Seu endereço MAC real injetado
     addrP->bytes[0] = 0x70; addrP->bytes[1] = 0x8B; addrP->bytes[2] = 0xCD;
     addrP->bytes[3] = 0xC0; addrP->bytes[4] = 0xEB; addrP->bytes[5] = 0x14;
-
     return kIOReturnSuccess;
 }
 
 void RTL8723BE_MacDriver::stop(IOService* provider) {
     IOLog("RTL8723BE_Mac: Driver parando...\n");
+    if (global_fake_itlwm) {
+        global_fake_itlwm->terminate();
+        global_fake_itlwm = nullptr;
+    }
     if (interruptSource) {
         interruptSource->disable();
         if (getWorkLoop()) getWorkLoop()->removeEventSource(interruptSource);
