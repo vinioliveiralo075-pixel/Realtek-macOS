@@ -5,7 +5,6 @@ CC = clang
 CXX = clang++
 
 # Flags essenciais para Kext: -mkernel, -nostdlib, -target (macOS 12.0)
-# Adicionado -iframework para o compilador achar o IOKit como um Framework
 KEXT_FLAGS = -mkernel -arch x86_64 -fno-builtin -g -O2 -DKERNEL -D_KERNEL -DKERNEL_PRIVATE -DAPPLE -std=gnu99 -w \
              -target x86_64-apple-macos12 \
              -I. -I.. -I../.. \
@@ -21,9 +20,9 @@ KEXT_NAME = RTL8723BE_MacDriver
 KEXT_BUNDLE = $(KEXT_NAME).kext
 KEXT_BINARY = $(KEXT_BUNDLE)/Contents/MacOS/$(KEXT_NAME)
 
-# ALTERAÇÃO AQUI: Agora busca os códigos na pasta atual e na pasta anterior (..)
-C_SRCS = $(wildcard *.c) $(wildcard ../*.c)
-CPP_SRCS = $(wildcard *.cpp) $(wildcard ../*.cpp)
+# CORREÇÃO: Compila apenas os arquivos locais para evitar conflito com o Linux
+C_SRCS = $(wildcard *.c)
+CPP_SRCS = $(wildcard *.cpp)
 OBJS = $(C_SRCS:.c=.o) $(CPP_SRCS:.cpp=.o)
 
 all: $(KEXT_BINARY)
@@ -40,6 +39,5 @@ $(KEXT_BINARY): $(OBJS)
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# ALTERAÇÃO AQUI: Limpa os arquivos .o de ambas as pastas para não dar conflito
 clean:
-	rm -rf *.o ../*.o $(KEXT_BUNDLE)
+	rm -rf *.o $(KEXT_BUNDLE)
