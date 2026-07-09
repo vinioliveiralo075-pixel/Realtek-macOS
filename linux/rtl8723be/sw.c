@@ -446,4 +446,19 @@ static void __exit rtl8723be_module_exit(void)
 
 module_init(rtl8723be_module_init);
 module_exit(rtl8723be_module_exit);
+// Lembre-se: use os nomes que você achou na sua busca!
+// Se você achou module_init(rtw_drv_entry), use rtw_drv_entry() aqui.
+
+kern_return_t RTL8723BE_start(kmod_info_t *ki, void *data) {
+    // Chame a função real de init aqui
+    return rtw_drv_entry(); 
+}
+
+kern_return_t RTL8723BE_stop(kmod_info_t *ki, void *data) {
+    // Chame a função real de exit aqui
+    rtw_drv_exit();
+    return KERN_SUCCESS;
+}
+
+KMOD_EXPLICIT_DECL(com.vini.RTL8723BE-MacDriver, "1.0.0", RTL8723BE_start, RTL8723BE_stop)
 #endif
