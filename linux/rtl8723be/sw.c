@@ -111,37 +111,37 @@ int rtl8723be_init_sw_vars(struct ieee80211_hw *hw)
 	rtlpriv->rtlhal.bandset = BAND_ON_2_4G;
 	rtlpriv->rtlhal.macphymode = SINGLEMAC_SINGLEPHY;
 
-	rtlpci->receive_config = (RCR_APPFCS		|
-				  RCR_APP_MIC		|
-				  RCR_APP_ICV		|
-				  RCR_APP_PHYST_RXFF	|
-				  RCR_HTC_LOC_CTRL	|
-				  RCR_AMF		|
-				  RCR_ACF		|
-				  RCR_ADF		|
-				  RCR_AICV		|
-				  RCR_AB		|
-				  RCR_AM		|
-				  RCR_APM		|
+	rtlpci->receive_config = (RCR_APPFCS        |
+				  RCR_APP_MIC       |
+				  RCR_APP_ICV       |
+				  RCR_APP_PHYST_RXFF |
+				  RCR_HTC_LOC_CTRL  |
+				  RCR_AMF           |
+				  RCR_ACF           |
+				  RCR_ADF           |
+				  RCR_AICV          |
+				  RCR_AB            |
+				  RCR_AM            |
+				  RCR_APM           |
 				  0);
 
-	rtlpci->irq_mask[0] = (u32) (IMR_PSTIMEOUT	|
-				     IMR_HSISR_IND_ON_INT	|
-				     IMR_C2HCMD		|
-				     IMR_HIGHDOK	|
-				     IMR_MGNTDOK	|
-				     IMR_BKDOK		|
-				     IMR_BEDOK		|
-				     IMR_VIDOK		|
-				     IMR_VODOK		|
-				     IMR_RDU		|
-				     IMR_ROK		|
+	rtlpci->irq_mask[0] = (u32) (IMR_PSTIMEOUT  |
+				     IMR_HSISR_IND_ON_INT |
+				     IMR_C2HCMD        |
+				     IMR_HIGHDOK       |
+				     IMR_MGNTDOK       |
+				     IMR_BKDOK         |
+				     IMR_BEDOK         |
+				     IMR_VIDOK         |
+				     IMR_VODOK         |
+				     IMR_RDU           |
+				     IMR_ROK           |
 				     0);
 
 	rtlpci->irq_mask[1] = (u32)(IMR_RXFOVW | 0);
 
-	rtlpci->sys_irq_mask = (u32)(HSIMR_PDN_INT_EN	|
-				     HSIMR_RON_INT_EN	|
+	rtlpci->sys_irq_mask = (u32)(HSIMR_PDN_INT_EN |
+				     HSIMR_RON_INT_EN |
 				     0);
 
 	/* for LPS & IPS */
@@ -425,40 +425,25 @@ static struct pci_driver rtl8723be_driver = {
 	.driver.pm = &rtlwifi_pm_ops,
 };
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0))
-module_pci_driver(rtl8723be_driver);
-#else
-static int __init rtl8723be_module_init(void)
+// --- ADAPTAÇÃO DIRETA PARA O MACOS ---
+
+static int mac_rtl8723be_init(void)
 {
-	int ret;
-
-	ret = pci_register_driver(&rtl8723be_driver);
-	if (ret)
-		RT_ASSERT(false, ": No device found\n");
-
-	return ret;
+	return pci_register_driver(&rtl8723be_driver);
 }
 
-static void __exit rtl8723be_module_exit(void)
+static void mac_rtl8723be_exit(void)
 {
 	pci_unregister_driver(&rtl8723be_driver);
 }
 
-module_init(rtl8723be_module_init);
-module_exit(rtl8723be_module_exit);
-// Lembre-se: use os nomes que você achou na sua busca!
-// Se você achou module_init(rtw_drv_entry), use rtw_drv_entry() aqui.
-
 kern_return_t RTL8723BE_start(kmod_info_t *ki, void *data) {
-    // Chame a função real de init aqui
-    return rtw_drv_entry(); 
+	return mac_rtl8723be_init() == 0 ? KERN_SUCCESS : KERN_FAILURE; 
 }
 
 kern_return_t RTL8723BE_stop(kmod_info_t *ki, void *data) {
-    // Chame a função real de exit aqui
-    rtw_drv_exit();
-    return KERN_SUCCESS;
+	mac_rtl8723be_exit();
+	return KERN_SUCCESS;
 }
 
-KMOD_EXPLICIT_DECL(com.vini.RTL8723BE-MacDriver, "1.0.0", RTL8723BE_start, RTL8723BE_stop)
-#endif
+KMOD_EXPLICIT_DECL(com_vini_RTL8723BE_MacDriver, "1.0.0", RTL8723BE_start, RTL8723BE_stop)
