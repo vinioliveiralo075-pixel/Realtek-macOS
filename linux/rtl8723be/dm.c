@@ -1297,7 +1297,3 @@ void rtl8723be_dm_watchdog(struct ieee80211_hw *hw)
 	spin_unlock(&rtlpriv->locks.rf_ps_lock);
 	rtlpriv->dm.dbginfo.num_qry_beacon_pkt = 0;
 }
-
-// Este é o "KMOD_INFO" que o macOS estava gritando que não achava
-// O primeiro argumento deve ser o ID do seu pacote, igual ao que está no Info.plist
-KMOD_EXPLICIT_DECL(com.vini.RTL8723BE-MacDriver, "1.0.0", RTL8723BE_start, RTL8723BE_stop)
