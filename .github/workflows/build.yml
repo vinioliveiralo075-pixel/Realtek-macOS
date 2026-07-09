@@ -16,8 +16,12 @@ jobs:
       - name: Compilar Kext para Monterey e Ventura
         run: |
           cd linux/rtl8723be
+          # Configura o caminho do SDK do macOS e a flag APPLE
+          export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
           export MACOSX_DEPLOYMENT_TARGET=12.0
-          make CFLAGS="-target x86_64-apple-macos12" LDFLAGS="-target x86_64-apple-macos12"
+          
+          # Compila com suporte ao IOKit e emulação ativada
+          make CFLAGS="-target x86_64-apple-macos12 -DAPPLE -isysroot $SDKROOT" LDFLAGS="-target x86_64-apple-macos12 -isysroot $SDKROOT"
 
       - name: Compactar Kext Corretamente
         run: |
