@@ -36,6 +36,7 @@
 #include "trx.h"
 #include "../btcoexist/rtl_btc.h"
 #include "apple_linux_emulation.h"
+#include <mach/kmod.h>
 
 static const u32 ofdmswing_table[] = {
 	0x0b40002d, /* 0,  -15.0dB */
@@ -1295,4 +1296,21 @@ void rtl8723be_dm_watchdog(struct ieee80211_hw *hw)
 	}
 	spin_unlock(&rtlpriv->locks.rf_ps_lock);
 	rtlpriv->dm.dbginfo.num_qry_beacon_pkt = 0;
+}
+// --- A ASSINATURA DE ENTRADA DO SEU DRIVER ---
+
+kern_return_t RTL8723BE_start(kmod_info_t *ki, void *data) {
+    // Aqui chamamos a função que inicializa o driver (se seu init for diferente, ajuste o nome)
+    return module_init(); 
+}
+
+kern_return_t RTL8723BE_stop(kmod_info_t *ki, void *data) {
+    // Aqui chamamos a função que desliga o driver
+    module_exit();
+    return KERN_SUCCESS;
+}
+
+// Este é o "KMOD_INFO" que o macOS estava gritando que não achava
+// O primeiro argumento deve ser o ID do seu pacote, igual ao que está no Info.plist
+KMOD_EXPLICIT_DECL(com.vini.RTL8723BE-MacDriver, "1.0.0", RTL8723BE_start, RTL8723BE_stop)
 }
