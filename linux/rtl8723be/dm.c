@@ -1297,18 +1297,6 @@ void rtl8723be_dm_watchdog(struct ieee80211_hw *hw)
 	spin_unlock(&rtlpriv->locks.rf_ps_lock);
 	rtlpriv->dm.dbginfo.num_qry_beacon_pkt = 0;
 }
-// --- A ASSINATURA DE ENTRADA DO SEU DRIVER ---
-
-kern_return_t RTL8723BE_start(kmod_info_t *ki, void *data) {
-    // Aqui chamamos a função que inicializa o driver (se seu init for diferente, ajuste o nome)
-    return module_init(); 
-}
-
-kern_return_t RTL8723BE_stop(kmod_info_t *ki, void *data) {
-    // Aqui chamamos a função que desliga o driver
-    module_exit();
-    return KERN_SUCCESS;
-}
 
 // Este é o "KMOD_INFO" que o macOS estava gritando que não achava
 // O primeiro argumento deve ser o ID do seu pacote, igual ao que está no Info.plist
