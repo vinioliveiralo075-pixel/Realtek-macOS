@@ -13,12 +13,14 @@ jobs:
       - name: Checkout do Código
         uses: actions/checkout@v4
 
-      - name: Compilar Kext
+      # Forçamos o compilador a gerar o binário compatível desde o Monterey (12.0)
+      # e usando o padrão de arquitetura x86_64 pura para Hackintosh Intel.
+       Kino: Compilar Kext para Monterey e Ventura
         run: |
           cd linux/rtl8723be
-          make
+          export MACOSX_DEPLOYMENT_TARGET=12.0
+          make CFLAGS="-target x86_64-apple-macos12" LDFLAGS="-target x86_64-apple-macos12"
 
-      # Criamos o zip manualmente preservando a estrutura da pasta .kext
       - name: Compactar Kext Corretamente
         run: |
           cd linux/rtl8723be
@@ -27,5 +29,5 @@ jobs:
       - name: Upload do Artefato (Kext)
         uses: actions/upload-artifact@v4
         with:
-          name: RTL8723BE_MacDriver_Release
+          name: RTL8723BE_MacDriver_Monterey_Ventura
           path: RTL8723BE_MacDriver.kext.zip
