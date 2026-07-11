@@ -16,19 +16,18 @@ jobs:
 
       - name: Compilar Kext para Monterey e Ventura
         run: |
-          cd linux/rtl8723be
-          # Limpeza prévia para garantir que não haja restos de compilações anteriores
+          # Entra na raiz do projeto Linux para rodar o Makefile mestre
+          cd linux
           make clean
-          # Executa o make
           make
         env:
-          # Passamos a variável pro Makefile entender o SDK atual
           SDKPATH: $(xcrun --sdk macosx --show-sdk-path)
 
       - name: Compactar Kext Corretamente
         run: |
-          cd linux/rtl8723be
-          zip -r ../../RTL8723BE_MacDriver.kext.zip RTL8723BE_MacDriver.kext
+          # A kext agora é gerada na raiz da pasta 'linux'
+          cd linux
+          zip -r ../RTL8723BE_MacDriver.kext.zip RTL8723BE_MacDriver.kext
 
       - name: Upload do Artefato (Kext)
         uses: actions/upload-artifact@v4
