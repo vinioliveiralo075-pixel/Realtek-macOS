@@ -438,4 +438,8 @@ static inline int ieee80211_has_protected(unsigned short fc) {
 }
 #endif
 
+// Anular macros de exportação de símbolos do Linux
+#define EXPORT_SYMBOL_GPL(x)
+#define EXPORT_SYMBOL(x)
+
 #endif // APPLE_LINUX_EMULATION_H
