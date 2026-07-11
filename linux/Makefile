@@ -36,6 +36,8 @@ all: patch_paths subdirs $(TARGET)
 patch_paths:
 	@rm -f rtl8723ae
 	@ln -s rtl8723be rtl8723ae
+	@mkdir -p linux
+	@touch linux/module.h linux/ip.h linux/init.h linux/kernel.h linux/types.h linux/pci.h linux/netdevice.h linux/etherdevice.h
 
 subdirs:
 	$(MAKE) -C rtl8723com CFLAGS="$(CFLAGS)" CC="$(CC)"
@@ -54,6 +56,7 @@ $(TARGET): $(ROOT_OBJS)
 
 clean:
 	rm -f *.o $(TARGET) rtl8723ae
+	rm -rf linux/
 	$(MAKE) -C rtl8723com clean
 	$(MAKE) -C btcoexist clean
 	$(MAKE) -C rtl8723be clean
