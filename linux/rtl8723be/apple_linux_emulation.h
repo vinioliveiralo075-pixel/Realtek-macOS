@@ -471,7 +471,7 @@ static inline int in_interrupt(void) {
 #define complete(x) (void)(x)
 
 // ============================================================================
-// EMULAÇÃO DO SUBSISTEMA WIRELESS (IEEE 802.11 / MAC80211 / NL80211) - PARTE 5
+// EMULAÇÃO DO SUBSISTEMA WIRELESS COMPLETO (PARTE 6 - FINAL)
 // ============================================================================
 
 #define NL80211_BAND_2GHZ 0
@@ -498,6 +498,23 @@ static inline int in_interrupt(void) {
 #define IEEE80211_VHT_MCS_SUPPORT_0_9                    0
 #define IEEE80211_VHT_MCS_NOT_SUPPORTED                  3
 
+// Flags de comandos de fabricante (Vendor Commands)
+#define WIPHY_VENDOR_CMD_NEED_WDEV    (1 << 0)
+#define WIPHY_VENDOR_CMD_NEED_NETDEV  (1 << 1)
+
+// Tipos Big Endian e funções de conversão inline
+typedef unsigned short __be16;
+typedef unsigned int   __be32;
+
+static inline unsigned short be16_to_cpu(__be16 val) {
+    return ((val & 0xFF) << 8) | ((val >> 8) & 0xFF);
+}
+static inline unsigned int be32_to_cpu(__be32 val) {
+    return ((val & 0xFF) << 24) | ((val & 0xFF00) << 8) | 
+           ((val >> 8) & 0xFF00) | ((val >> 24) & 0xFF);
+}
+
+// Estruturas de canais e taxas
 struct ieee80211_channel {
     int center_freq;
     int band;
@@ -548,9 +565,33 @@ struct ieee80211_supported_band {
     int n_channels;
     struct ieee80211_rate *bitrates;
     int n_bitrates;
-    struct {
-        int dummy;
-    } ht_cap;
+    struct ieee80211_sta_ht_cap ht_cap;   // Corrigido para struct real
+    struct ieee80211_sta_vht_cap vht_cap; // Adicionado campo vht_cap
 };
+
+// Estruturas do ecossistema Wiphy / Hardware do Linux
+struct wireless_dev {
+    int dummy;
+};
+
+struct wiphy_vendor_command {
+    unsigned int info_idx;
+    unsigned int flags;
+    const void *doit;
+};
+
+struct wiphy {
+    const struct wiphy_vendor_command *vendor_commands;
+    int n_vendor_commands;
+    struct ieee80211_supported_band *bands[2];
+};
+
+struct ieee80211_hw {
+    struct wiphy *wiphy;
+    struct wiphy private_wiphy; // Espaço reservado para o cálculo do offsetof
+};
+
+// Macro de conversão de wiphy para hw
+#define wiphy_to_ieee80211_hw(w) ((struct ieee80211_hw *)((char *)(w) - offsetof(struct ieee80211_hw, private_wiphy)))
 
 #endif // APPLE_LINUX_EMULATION_H
