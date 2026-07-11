@@ -456,4 +456,18 @@ struct seq_file {
 #define seq_puts(m, x)          ((void)0)
 #define seq_printf(m, fmt, ...) ((void)0)
 
+// Emulação de contexto de interrupção e sincronização (completions) do Linux
+static inline int in_interrupt(void) {
+    return 0;
+}
+
+// O tipo correspondente para a estrutura bt_mp_comp que o driver usa
+struct completion {
+    int dummy;
+};
+
+#define init_completion(x)           ((void)0)
+#define reinit_completion(x)         ((void)0)
+#define wait_for_completion_timeout(x, timeout) (timeout)
+
 #endif // APPLE_LINUX_EMULATION_H
