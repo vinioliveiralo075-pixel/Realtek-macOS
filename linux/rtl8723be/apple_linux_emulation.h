@@ -465,4 +465,14 @@ static inline int in_interrupt(void) {
 #define reinit_completion(x)         ((void)0)
 #define wait_for_completion_timeout(x, timeout) (timeout)
 
+// Emulação para macros de inicialização de módulo do Linux
+#define __init
+#define __exit
+#define module_init(x)
+#define module_exit(x)
+
+// Emulação para funções de sincronização (completions) do Linux
+struct completion { int dummy; };
+#define complete(x) (void)(x)
+
 #endif // APPLE_LINUX_EMULATION_H
