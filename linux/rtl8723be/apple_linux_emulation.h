@@ -177,12 +177,13 @@ struct ieee80211_hw_conf {
 
 struct ieee80211_hw {
     struct wiphy *wiphy;
-    void *priv;                 // <-- ADICIONE ESSA LINHA AQUI!
+    void *priv;
     int queues;
     int extra_tx_headroom;
     int max_listen_interval;
     int max_rate_tries;
     size_t sta_data_size;
+    struct ieee80211_hw_conf conf;
 };
 
 // Estrutura de status de recepção de pacotes
@@ -475,7 +476,7 @@ static inline int in_interrupt(void) {
 #define complete(x) (void)(x)
 
 // ============================================================================
-// EMULAÇÃO DO SUBSISTEMA WIRELESS COMPLETO (PARTE 6 - SUPORTE FINAL BASE.C)
+// EMULAÇÃO DO SUBSISTEMA WIRELESS COMPLETO (PARTE 6 - BLOCO UNIFICADO TRX/BASE)
 // ============================================================================
 
 #define NL80211_BAND_2GHZ 0
@@ -604,6 +605,15 @@ struct wiphy_vendor_command {
     unsigned int subcmd;
     unsigned int flags;
     const void *doit;
+};
+
+// Sub-estruturas de configuração exigidas pelo trx.c
+struct i_chandef {
+    struct ieee80211_channel *chan;
+};
+
+struct ieee80211_hw_conf {
+    struct i_chandef chandef;
 };
 
 struct wiphy {
