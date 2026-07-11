@@ -177,6 +177,7 @@ struct ieee80211_hw_conf {
 
 struct ieee80211_hw {
     struct wiphy *wiphy;
+    void *priv;                 // <-- ADICIONE ESSA LINHA AQUI!
     int queues;
     int extra_tx_headroom;
     int max_listen_interval;
