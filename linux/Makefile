@@ -7,6 +7,7 @@ CFLAGS = -mkernel -arch x86_64 -nostdinc -target x86_64-apple-macos12 \
          -I. -I.. -Irtl8723be -Irtl8723com -Ibtcoexist -I../rtl8723be -I../rtl8723com -I../btcoexist \
          -DKERNEL -DKERNEL_PRIVATE -fno-builtin \
          -DCONFIG_RTLWIFI_DEBUG -DBT_SUPPORT=1 -DCOEX_SUPPORT=1 \
+         -D"EXPORT_SYMBOL_GPL(x)=" -D"EXPORT_SYMBOL(x)=" \
          -include apple_linux_emulation.h
 
 LDFLAGS = -mkernel -arch x86_64 -Xlinker -kext -nostdlib \
