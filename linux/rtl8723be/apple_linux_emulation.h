@@ -653,4 +653,60 @@ static inline void *alloc_workqueue(const char *fmt, unsigned int flags, int max
 // Macro de conversão de wiphy para hw
 #define wiphy_to_ieee80211_hw(w) ((struct ieee80211_hw *)(w))
 
+// ============================================================================
+// EXTENSÃO DE EMULAÇÃO PARA O BASE.C (CONTROLE DE TAXAS, VENDOR E STATUS DE TX)
+// ============================================================================
+
+// 1. Estrutura de Comandos Vendor (Evita erro de non-aggregate type)
+struct wiphy_vendor_command {
+    u32 vendor_id;
+    u32 subcmd;
+};
+
+// 2. Flags de Controle de Taxa do IEEE80211 Faltantes
+#define IEEE80211_TX_RC_SHORT_GI         (1 << 0)
+#define IEEE80211_TX_RC_USE_CTS_PROTECT  (1 << 1)
+#define IEEE80211_TX_RC_USE_RTS_CTS      (1 << 2)
+#define IEEE80211_TX_RC_MCS              (1 << 3)
+#define IEEE80211_TX_RC_VHT_MCS          (1 << 4)
+
+// 3. Enums de Suporte do Wi-Fi AC (VHT)
+enum {
+    IEEE80211_VHT_MCS_SUPPORT_0_7 = 0,
+    IEEE80211_VHT_MCS_SUPPORT_0_8 = 1,
+    IEEE80211_VHT_MCS_SUPPORT_0_9 = 2,
+};
+
+// 4. Estruturas Completas de Status de Transmissão (TX Info / Status)
+struct ieee80211_tx_rate {
+    u32 flags;
+    u8 idx;
+};
+
+struct ieee80211_tx_status {
+    struct ieee80211_tx_rate rates[4];
+};
+
+struct ieee80211_tx_info {
+    struct {
+        struct {
+            u8 flags;
+        } rates[4];
+    } control;
+    struct ieee80211_tx_status status;
+};
+
+// 5. Funções Inline Emuladas (Stubs de compatibilidade mac80211)
+static inline int ieee80211_rate_get_vht_nss(const struct ieee80211_tx_rate *r) {
+    return 1; 
+}
+
+static inline int ieee80211_rate_get_vht_mcs(const struct ieee80211_tx_rate *r) {
+    return 0;
+}
+
+static inline u32 ieee80211_get_tx_rate(void *hw, struct ieee80211_tx_info *info) {
+    return 0;
+}
+
 #endif // APPLE_LINUX_EMULATION_H
