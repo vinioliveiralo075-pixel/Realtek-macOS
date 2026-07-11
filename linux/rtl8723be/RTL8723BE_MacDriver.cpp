@@ -65,14 +65,63 @@ IOReturn itlwmUserClient::clientClose() {
     return kIOReturnSuccess;
 }
 
+// Estrutura que simula exatamente o que o HeliPort espera receber de cada rede (padrão itlwm)
+struct itlwm_scan_result_fake {
+    char ssid[32];
+    uint32_t ssid_len;
+    int32_t rssi;
+    uint8_t bssid[6];
+};
+
 // Essa função roda SEMPRE que você clica em algo no HeliPort!
 IOReturn itlwmUserClient::externalMethod(uint32_t selector, IOExternalMethodArguments* arguments,
                                         IOExternalMethodDispatch* dispatch, OSObject* target, void* reference) {
+    
     IOLog("RTL8723BE_Mac: HeliPort enviou o comando (Selector): %d\n", selector);
     
+    // 1. Comando do HeliPort para INICIAR a busca por redes
+    if (selector == 2) {
+        IOLog("RTL8723BE_Mac: HeliPort solicitou varredura (Scan)!\n");
+        // No futuro, chamamos aqui a função nativa: rtl8723be_start_scan(global_fake_hw);
+        return kIOReturnSuccess;
+    }
+    
+    // 2. Comando do HeliPort para COLETAR os resultados do scan e listar no app
+    if (selector == 1) {
+        if (!arguments || !arguments->structureOutput || arguments->structureOutputSize == 0) {
+            return kIOReturnBadArgument;
+        }
+
+        // Apontamos para o espaço de memória que o HeliPort abriu para nós preenchermos
+        itlwm_scan_result_fake* outputBuffer = (itlwm_scan_result_fake*)arguments->structureOutput;
+        
+        // Vamos simular 2 redes fixas de teste só para ver se elas aparecem no seu HeliPort!
+        // Assim que testar e ver que apareceu, a gente puxa as redes reais do "sw.h/hw.h"
+        
+        // Rede de Teste 1
+        strncpy(outputBuffer[0].ssid, "Rede_do_Vini_Realtek", 32);
+        outputBuffer[0].ssid_len = (uint32_t)strlen(outputBuffer[0].ssid);
+        outputBuffer[0].rssi = -50; // Sinal excelente!
+        outputBuffer[0].bssid[0] = 0x00; outputBuffer[0].bssid[1] = 0x11; outputBuffer[0].bssid[2] = 0x22;
+        outputBuffer[0].bssid[3] = 0x33; outputBuffer[0].bssid[4] = 0x44; outputBuffer[0].bssid[5] = 0x55;
+
+        // Rede de Teste 2
+        strncpy(outputBuffer[1].ssid, "Hackintosh_Wifi_Falso", 32);
+        outputBuffer[1].ssid_len = (uint32_t)strlen(outputBuffer[1].ssid);
+        outputBuffer[1].rssi = -75; // Sinal médio
+        outputBuffer[1].bssid[0] = 0xAA; outputBuffer[1].bssid[1] = 0xBB; outputBuffer[1].bssid[2] = 0xCC;
+        outputBuffer[1].bssid[3] = 0xDD; outputBuffer[1].bssid[4] = 0xEE; outputBuffer[1].bssid[5] = 0xFF;
+
+        // Avisamos ao HeliPort que preenchemos o espaço equivalente a 2 redes
+        arguments->structureOutputByteCount = 2 * sizeof(itlwm_scan_result_fake);
+        
+        IOLog("RTL8723BE_Mac: Injetadas 2 redes de teste no HeliPort com sucesso!\n");
+        return kIOReturnSuccess;
+    }
+    
+    // Se o HeliPort mandar dados (como conectar e digitar senha)
     if (arguments && arguments->structureInput && arguments->structureInputSize > 0) {
-        IOLog("RTL8723BE_Mac: Dados brutos recebidos do HeliPort! Tamanho: %d bytes\n", arguments->structureInputSize);
-        // Aqui no futuro vamos decodificar o SSID e a Senha que o HeliPort mandou!
+        IOLog("RTL8723BE_Mac: Dados de conexao recebidos! Tamanho: %d bytes\n", arguments->structureInputSize);
     }
     
     return kIOReturnSuccess;
