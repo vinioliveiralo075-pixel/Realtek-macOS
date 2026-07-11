@@ -442,4 +442,24 @@ static inline int ieee80211_has_protected(unsigned short fc) {
 #define EXPORT_SYMBOL_GPL(x)
 #define EXPORT_SYMBOL(x)
 
+// Emulação de gerenciamento de buffers de rede (sk_buff) do Linux
+struct sk_buff {
+    void *data;
+    unsigned int len;
+};
+
+struct sk_buff_head {
+    void *next;
+    void *prev;
+    unsigned int qlen;
+};
+
+// Declaração da função que o fw_common.c está cobrando
+static inline void __skb_queue_tail(struct sk_buff_head *list, struct sk_buff *newsk) {
+    // Emulação simples: no ecossistema do macOS, a lógica de enfileiramento real
+    // será tratada pelas APIs da IO80211Family. Aqui apenas evitamos o erro de compilação.
+    (void)list;
+    (void)newsk;
+}
+
 #endif // APPLE_LINUX_EMULATION_H
