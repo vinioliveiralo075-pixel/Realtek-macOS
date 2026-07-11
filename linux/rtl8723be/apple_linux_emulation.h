@@ -448,4 +448,12 @@ static inline void __skb_queue_tail(struct sk_buff_head *list, struct sk_buff *n
     (void)newsk;
 }
 
+// Emulação do sistema seq_file do Linux (usado para logs/debug)
+struct seq_file {
+    int dummy;
+};
+
+#define seq_puts(m, x)          ((void)0)
+#define seq_printf(m, fmt, ...) ((void)0)
+
 #endif // APPLE_LINUX_EMULATION_H
