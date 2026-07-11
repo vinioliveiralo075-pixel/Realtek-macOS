@@ -461,6 +461,10 @@ static inline int in_interrupt(void) {
     return 0;
 }
 
+#define init_completion(x)           ((void)0)
+#define reinit_completion(x)         ((void)0)
+#define wait_for_completion_timeout(x, timeout) (timeout)
+
 // O tipo correspondente para a estrutura bt_mp_comp que o driver usa
 struct completion {
     int dummy;
