@@ -1,14 +1,14 @@
-# Caminho automático para o SDK do macOS (Garante que o Clang ache as bibliotecas)
+# Caminho automático para o SDK do macOS
 SDKPATH = $(shell xcrun --show-sdk-path)
 
 CC = clang
-CFLAGS = -mkernel -arch x86_64 -nostdinc -target x86_64-apple-macos12 \
+# Adicionado -w para esconder os warnings e focar apenas em erros críticos
+CFLAGS = -mkernel -arch x86_64 -nostdinc -target x86_64-apple-macos12 -w \
          -I$(SDKPATH)/System/Library/Frameworks/Kernel.framework/Headers \
          -I$(SDKPATH)/usr/include \
-         -I. -D__KERNEL__ -Wno-implicit-function-declaration -Wno-incompatible-pointer-types
+         -I. -D__KERNEL__
 
-# LDFLAGS corrigido com -lc++_kext e o caminho do SDK (-L)
-LDFLAGS = -mkernel -arch x86_64 -Xlinker -kext -nostdlib -L$(SDKPATH)/usr/lib \
+LDFLAGS = -mkernel -arch x86_64 -Xlinker -kext -nostdlib -L$(SDKPATH)/usr/lib -w \
           -lkmodc++ -lc++_kext -lkmod -lcc_kext -target x86_64-apple-macos12
 
 OBJS = dm.o fw.o hw.o led.o phy.o pwrseq.o pwrseqcmd.o rf.o sw.o table.o trx.o RTL8723BE_MacDriver.o
