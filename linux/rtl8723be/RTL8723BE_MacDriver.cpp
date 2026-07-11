@@ -113,7 +113,7 @@ IOReturn itlwmUserClient::externalMethod(uint32_t selector, IOExternalMethodArgu
         outputBuffer[1].bssid[3] = 0xDD; outputBuffer[1].bssid[4] = 0xEE; outputBuffer[1].bssid[5] = 0xFF;
 
         // Avisamos ao HeliPort que preenchemos o espaço equivalente a 2 redes
-        arguments->structureOutputByteCount = 2 * sizeof(itlwm_scan_result_fake);
+        arguments->structureOutputSize = 2 * sizeof(itlwm_scan_result_fake);
         
         IOLog("RTL8723BE_Mac: Injetadas 2 redes de teste no HeliPort com sucesso!\n");
         return kIOReturnSuccess;
