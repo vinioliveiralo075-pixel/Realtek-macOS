@@ -161,8 +161,6 @@ struct ieee80211_hdr {
     unsigned short seq_ctrl;    
 };
 
-struct ieee80211_supported_band { int dummy; };
-
 // Estruturas de canais e frequências para o trx.c
 struct ieee80211_chan {
     unsigned int center_freq;
