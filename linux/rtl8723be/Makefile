@@ -1,12 +1,11 @@
-# Caminho automático para o SDK do macOS
 SDKPATH = $(shell xcrun --show-sdk-path)
 
 CC = clang
-# Adicionado -w para esconder os warnings e focar apenas em erros críticos
+# Trocado -D__KERNEL__ por -DKERNEL -DKERNEL_PRIVATE -fno-builtin para o ambiente macOS Kext correto
 CFLAGS = -mkernel -arch x86_64 -nostdinc -target x86_64-apple-macos12 -w \
          -I$(SDKPATH)/System/Library/Frameworks/Kernel.framework/Headers \
          -I$(SDKPATH)/usr/include \
-         -I. -D__KERNEL__
+         -I. -DKERNEL -DKERNEL_PRIVATE -fno-builtin
 
 LDFLAGS = -mkernel -arch x86_64 -Xlinker -kext -nostdlib -L$(SDKPATH)/usr/lib -w \
           -lkmodc++ -lc++_kext -lkmod -lcc_kext -target x86_64-apple-macos12
