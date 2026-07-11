@@ -471,7 +471,7 @@ static inline int in_interrupt(void) {
 #define complete(x) (void)(x)
 
 // ============================================================================
-// EMULAÇÃO DO SUBSISTEMA WIRELESS (IEEE 802.11 / MAC80211 / NL80211) - PARTE 3
+// EMULAÇÃO DO SUBSISTEMA WIRELESS (IEEE 802.11 / MAC80211 / NL80211) - PARTE 4
 // ============================================================================
 
 #define NL80211_BAND_2GHZ 0
@@ -484,7 +484,18 @@ static inline int in_interrupt(void) {
 #define IEEE80211_HT_MPDU_DENSITY_16     6
 #define IEEE80211_HT_MCS_TX_DEFINED      1
 
-#define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454 (1 << 0)
+// Macros de Wi-Fi AC (VHT) exigidas pelo base.c
+#define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454          (1 << 0)
+#define IEEE80211_VHT_CAP_SHORT_GI_80                    (1 << 1)
+#define IEEE80211_VHT_CAP_TXSTBC                         (1 << 2)
+#define IEEE80211_VHT_CAP_RXSTBC_1                       (1 << 3)
+#define IEEE80211_VHT_CAP_SU_BEAMFORMER_CAPABLE          (1 << 4)
+#define IEEE80211_VHT_CAP_SU_BEAMFORMEE_CAPABLE          (1 << 5)
+#define IEEE80211_VHT_CAP_HTC_VHT                        (1 << 6)
+#define IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_MASK (1 << 7)
+#define IEEE80211_VHT_CAP_RX_ANTENNA_PATTERN             (1 << 8)
+#define IEEE80211_VHT_CAP_TX_ANTENNA_PATTERN             (1 << 9)
+#define IEEE80211_VHT_MCS_SUPPORT_0_9                    0
 
 struct ieee80211_channel {
     int center_freq;
@@ -500,11 +511,11 @@ struct ieee80211_rate {
     int hw_value;
 };
 
-// Como a struct ieee80211_mcs_cap antiga pode ter campos faltando, vamos garantir que ela tenha tudo:
-// Se o compilador reclamar de redefinição, apenas adicione os campos rx_highest e tx_params na que já existe na linha 199!
+// Adicionado o array rx_mask de 10 elementos que o driver usa para mapear os canais
 struct _patch_ieee80211_mcs_cap {
     unsigned int tx_params;
     unsigned short rx_highest;
+    unsigned char rx_mask[10]; 
 };
 #define ieee80211_mcs_cap _patch_ieee80211_mcs_cap
 
@@ -528,7 +539,7 @@ struct ieee80211_supported_band {
     struct ieee80211_rate *bitrates;
     int n_bitrates;
     struct {
-        int dummy; // Apenas para preencher o .ht_cap = {0}
+        int dummy;
     } ht_cap;
 };
 
