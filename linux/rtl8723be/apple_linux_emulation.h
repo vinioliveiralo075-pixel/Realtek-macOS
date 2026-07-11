@@ -10,7 +10,7 @@
 // Se estiver sendo compilado por um arquivo C++, força o tratamento como C puro
 extern "C" {
     #include "apple_linux_emulation.h"
-    #include "rtl8723be.h" 
+    #include "RTL8723BE_MacDriver.hpp" 
 }
 
 // --- BYPASS DE SEGURANÇA XNU (BOUNDS SAFETY / FORTIFY SOURCE) ---
