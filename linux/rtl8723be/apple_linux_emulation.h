@@ -199,20 +199,24 @@ struct ieee80211_rx_status {
     s8 signal;
 };
 
-// Definições internas de Station corrigidas com suporte a sub-estruturas MCS
+// Definições de controle de taxas do HT
 struct ieee80211_mcs_cap {
     u8 rx_mask[16];
+    unsigned int tx_params;
+    unsigned short rx_highest;
 };
 
-struct ieee80211_ht_cap {
-    bool ht_supported; // Necessário para a checagem no base.c
+// Estrutura HT principal esperada pelo driver
+struct ieee80211_sta_ht_cap {
+    bool ht_supported;
     u32 cap;
-    struct ieee80211_mcs_cap mcs; 
     u8 ampdu_density;
     unsigned int ampdu_factor;
+    struct ieee80211_mcs_cap mcs;
 };
+#define ieee80211_ht_cap ieee80211_sta_ht_cap
 
-// Sub-estruturas de VHT (Inseridas antes da sta para evitar tipo incompleto)
+// Sub-estruturas de controle do Wi-Fi AC (VHT)
 struct ieee80211_vht_mcs_cap {
     unsigned short rx_mcs_map;
     unsigned short rx_highest;
@@ -220,16 +224,18 @@ struct ieee80211_vht_mcs_cap {
     unsigned short tx_highest;
 };
 
-struct ieee80211_vht_cap {
+// Estrutura VHT principal esperada pelo driver
+struct ieee80211_sta_vht_cap {
     bool vht_supported;
     unsigned int cap;
     struct ieee80211_vht_mcs_cap vht_mcs;
 };
+#define ieee80211_vht_cap ieee80211_sta_vht_cap
 
-// Definição única e correta da estrutura da Estação
+// Estrutura da Estação (Station) unificada
 struct ieee80211_sta {
-    struct ieee80211_ht_cap ht_cap;
-    struct ieee80211_vht_cap vht_cap;
+    struct ieee80211_sta_ht_cap ht_cap;
+    struct ieee80211_sta_vht_cap vht_cap;
     void *drv_priv;
     u16 aid;
     u32 supp_rates[16];
