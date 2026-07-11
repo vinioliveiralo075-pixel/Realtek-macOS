@@ -31,7 +31,11 @@ OBJS = $(ROOT_OBJS) $(BE_OBJS) $(BTC_OBJS) $(COM_OBJS)
 
 TARGET = RTL8723BE_MacDriver.kext/Contents/MacOS/RTL8723BE_MacDriver
 
-all: subdirs $(TARGET)
+all: patch_paths subdirs $(TARGET)
+
+patch_paths:
+	@rm -f rtl8723ae
+	@ln -s rtl8723be rtl8723ae
 
 subdirs:
 	$(MAKE) -C rtl8723com CFLAGS="$(CFLAGS)" CC="$(CC)"
@@ -49,7 +53,7 @@ $(TARGET): $(ROOT_OBJS)
 	$(CC) $(CFLAGS) -std=c++11 -fno-rtti -fno-exceptions -c $< -o $@
 
 clean:
-	rm -f *.o $(TARGET)
+	rm -f *.o $(TARGET) rtl8723ae
 	$(MAKE) -C rtl8723com clean
 	$(MAKE) -C btcoexist clean
 	$(MAKE) -C rtl8723be clean
