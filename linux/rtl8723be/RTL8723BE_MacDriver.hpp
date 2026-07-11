@@ -1,6 +1,11 @@
 #ifndef RTL8723BE_MACDRIVER_HPP
 #define RTL8723BE_MACDRIVER_HPP
 
+#ifndef RTL8723BE_MacDriver_hpp
+#define RTL8723BE_MacDriver_hpp
+
+#define __IOKIT_INLINE__ 1
+
 #include <IOKit/network/IOEthernetController.h>
 #include <IOKit/pci/IOPCIDevice.h>
 #include <IOKit/IOInterruptEventSource.h>
