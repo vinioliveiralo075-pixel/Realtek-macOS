@@ -465,13 +465,4 @@ static inline int in_interrupt(void) {
 #define reinit_completion(x)         ((void)0)
 #define wait_for_completion_timeout(x, timeout) (timeout)
 
-// O tipo correspondente para a estrutura bt_mp_comp que o driver usa
-struct completion {
-    int dummy;
-};
-
-#define init_completion(x)           ((void)0)
-#define reinit_completion(x)         ((void)0)
-#define wait_for_completion_timeout(x, timeout) (timeout)
-
 #endif // APPLE_LINUX_EMULATION_H
