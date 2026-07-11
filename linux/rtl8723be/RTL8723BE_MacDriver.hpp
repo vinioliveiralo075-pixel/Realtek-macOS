@@ -7,10 +7,22 @@
 #endif
 #define __IOKIT_INLINE__ 1
 
+// === TRUQUE PARA DESATIVAR A MACRO CONFLITANTE DO LINUX ===
+#ifdef complete
+    #define LINUX_COMPLETE_BACKUP complete
+    #undef complete
+#endif
+
 #include <IOKit/network/IOEthernetController.h>
 #include <IOKit/pci/IOPCIDevice.h>
 #include <IOKit/IOInterruptEventSource.h>
 #include <IOKit/IOUserClient.h>
+
+// === DEVOLVE A MACRO PARA O CÓDIGO DA REALTEK EM C ===
+#ifdef LINUX_COMPLETE_BACKUP
+    #define complete LINUX_COMPLETE_BACKUP
+    #undef LINUX_COMPLETE_BACKUP
+#endif
 
 // === CLASSE DA PONTE DE COMUNICAÇÃO (USER CLIENT) ===
 class itlwmUserClient : public IOUserClient {
