@@ -8,9 +8,10 @@
 #include <sys/errno.h>
 
 // Se estiver sendo compilado por um arquivo C++, força o tratamento como C puro
-#ifdef __cplusplus
 extern "C" {
-#endif
+    #include "apple_linux_emulation.h"
+    #include "rtl8723be.h" 
+}
 
 // --- BYPASS DE SEGURANÇA XNU (BOUNDS SAFETY / FORTIFY SOURCE) ---
 // Ignora os wrappers estritos de tamanho do macOS para aceitar o código legado do Linux
