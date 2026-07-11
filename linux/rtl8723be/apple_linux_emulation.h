@@ -683,4 +683,58 @@ static inline u32 ieee80211_get_tx_rate(void *hw, void *info) {
     return 0;
 }
 
+// ============================================================================
+// SUPORTE AVANÇADO DE FRAME E CONTROLE DE TAXAS (BASE.C)
+// ============================================================================
+
+// 1. Definições de Identificadores VHT faltantes
+#ifndef IEEE80211_VHT_MCS_SUPPORT_0_7
+#define IEEE80211_VHT_MCS_SUPPORT_0_7 0
+#endif
+#ifndef IEEE80211_VHT_MCS_SUPPORT_0_8
+#define IEEE80211_VHT_MCS_SUPPORT_0_8 1
+#endif
+#ifndef IEEE80211_VHT_MCS_SUPPORT_0_9
+#define IEEE80211_VHT_MCS_SUPPORT_0_9 2
+#endif
+
+// 2. Máscaras adicionais para controle de taxa
+#define IEEE80211_ADDBA_PARAM_TID_MASK 0x001e
+
+// 3. Estruturas extras para evitar "incomplete definition" no base.c
+struct ieee80211_tx_rate_control {
+    u8 idx;
+};
+
+struct ieee80211_mgmt {
+    struct {
+        struct {
+            struct {
+                struct {
+                    u16 capab;
+                } addba_req;
+            } action;
+        } u;
+    } u;
+};
+
+// 4. Macros e Funções de checagem de tipo de pacote (Frames)
+static inline int ieee80211_is_data(u16 fc) { return (fc & 0x000c) == 0x0008; }
+static inline int ieee80211_is_auth(u16 fc) { return fc == 0x00b0; }
+static inline int ieee80211_is_probe_req(u16 fc) { return fc == 0x0040; }
+static inline int ieee80211_is_action(u16 fc) { return fc == 0x00d0; }
+
+// 5. Stubs de recepção e controle de buffer (skb)
+#define IEEE80211_SKB_RXCB(skb) ((void *)((skb)->cb))
+static inline void ieee80211_rx_irqsafe(void *hw, void *skb) {}
+
+// 6. Correção do retorno do ponteiro de taxa
+struct ieee80211_rate {
+    u8 hw_value;
+};
+static inline struct ieee80211_rate *ieee80211_get_tx_rate(void *hw, void *info) {
+    static struct ieee80211_rate dummy_rate = {0};
+    return &dummy_rate;
+}
+
 #endif // APPLE_LINUX_EMULATION_H
