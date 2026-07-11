@@ -174,6 +174,11 @@ int rtl8723be_init_sw_vars(struct ieee80211_hw *hw)
 
 	rtlpriv->rtlhal.earlymode_enable = false;
 
+/*low power: Disable 32k */
+	rtlpriv->psc.low_power_enable = false;
+
+	rtlpriv->rtlhal.earlymode_enable = false;
+
 	/* for firmware buf */
 	rtlpriv->rtlhal.pfirmware = vzalloc(0x8000);
 	if (!rtlpriv->rtlhal.pfirmware) {
@@ -184,8 +189,6 @@ int rtl8723be_init_sw_vars(struct ieee80211_hw *hw)
 	rtlpriv->max_fw_size = 0x8000;
 	pr_info("Using firmware %s\n", fw_name);
 
-	return 0;
-	}
 	return 0;
 }
 
