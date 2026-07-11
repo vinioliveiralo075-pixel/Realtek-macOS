@@ -1,9 +1,10 @@
 #ifndef RTL8723BE_MACDRIVER_HPP
 #define RTL8723BE_MACDRIVER_HPP
 
-#ifndef RTL8723BE_MacDriver_hpp
-#define RTL8723BE_MacDriver_hpp
-
+// Bloqueia infiltração do DriverKit moderno e ativa tipos legados de rede (como mbuf_t)
+#ifndef XNU_KERNEL_PRIVATE
+#define XNU_KERNEL_PRIVATE 1
+#endif
 #define __IOKIT_INLINE__ 1
 
 #include <IOKit/network/IOEthernetController.h>
@@ -13,6 +14,7 @@
 
 // === CLASSE DA PONTE DE COMUNICAÇÃO (USER CLIENT) ===
 class itlwmUserClient : public IOUserClient {
+public:
     OSDeclareDefaultStructors(itlwmUserClient)
 private:
     IOService* fProvider;
@@ -25,6 +27,7 @@ public:
 
 // === CLASSE FANTASMA PARA ENGANAR O HELIPORT ===
 class itlwm : public IOService {
+public:
     OSDeclareDefaultStructors(itlwm)
 public:
     virtual bool start(IOService* provider) override;
@@ -33,6 +36,7 @@ public:
 
 // === SEU DRIVER PRINCIPAL DA REALTEK ===
 class RTL8723BE_MacDriver : public IOEthernetController {
+public:
     OSDeclareDefaultStructors(RTL8723BE_MacDriver)
 
 private:
