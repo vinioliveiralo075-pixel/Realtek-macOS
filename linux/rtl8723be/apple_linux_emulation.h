@@ -471,7 +471,7 @@ static inline int in_interrupt(void) {
 #define complete(x) (void)(x)
 
 // ============================================================================
-// EMULAÇÃO DO SUBSISTEMA WIRELESS (IEEE 802.11 / MAC80211 / NL80211) - PARTE 4
+// EMULAÇÃO DO SUBSISTEMA WIRELESS (IEEE 802.11 / MAC80211 / NL80211) - PARTE 5
 // ============================================================================
 
 #define NL80211_BAND_2GHZ 0
@@ -496,6 +496,7 @@ static inline int in_interrupt(void) {
 #define IEEE80211_VHT_CAP_RX_ANTENNA_PATTERN             (1 << 8)
 #define IEEE80211_VHT_CAP_TX_ANTENNA_PATTERN             (1 << 9)
 #define IEEE80211_VHT_MCS_SUPPORT_0_9                    0
+#define IEEE80211_VHT_MCS_NOT_SUPPORTED                  3
 
 struct ieee80211_channel {
     int center_freq;
@@ -511,7 +512,7 @@ struct ieee80211_rate {
     int hw_value;
 };
 
-// Adicionado o array rx_mask de 10 elementos que o driver usa para mapear os canais
+// Remendo para suportar rx_mask e rx_highest da estrutura MCS do HT
 struct _patch_ieee80211_mcs_cap {
     unsigned int tx_params;
     unsigned short rx_highest;
@@ -527,9 +528,18 @@ struct ieee80211_sta_ht_cap {
     struct ieee80211_mcs_cap mcs;
 };
 
+// Sub-estrutura para as taxas de transmissão do Wi-Fi AC (VHT)
+struct ieee80211_vht_mcs_cap {
+    unsigned short rx_mcs_map;
+    unsigned short rx_highest;
+    unsigned short tx_mcs_map;
+    unsigned short tx_highest;
+};
+
 struct ieee80211_sta_vht_cap {
     bool vht_supported;
     unsigned int cap;
+    struct ieee80211_vht_mcs_cap vht_mcs;
 };
 
 struct ieee80211_supported_band {
