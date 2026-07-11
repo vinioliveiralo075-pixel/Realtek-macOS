@@ -176,6 +176,8 @@ struct ieee80211_hw_conf {
 };
 
 struct ieee80211_hw { 
+    struct wiphy *wiphy;
+    struct wiphy private_wiphy;
     void *priv; 
     void *vif; 
     struct ieee80211_hw_conf conf;
@@ -471,7 +473,7 @@ static inline int in_interrupt(void) {
 #define complete(x) (void)(x)
 
 // ============================================================================
-// EMULAÇÃO DO SUBSISTEMA WIRELESS COMPLETO (PARTE 6 - FINAL)
+// EMULAÇÃO DO SUBSISTEMA WIRELESS COMPLETO (PARTE 6 - REVISADO)
 // ============================================================================
 
 #define NL80211_BAND_2GHZ 0
@@ -507,7 +509,7 @@ typedef unsigned short __be16;
 typedef unsigned int   __be32;
 
 static inline unsigned short be16_to_cpu(__be16 val) {
-    return ((val & 0xFF) << 8) | ((val >> 8) & 0xFF);
+    return (unsigned short)(((val & 0xFF) << 8) | ((val >> 8) & 0xFF));
 }
 static inline unsigned int be32_to_cpu(__be32 val) {
     return ((val & 0xFF) << 24) | ((val & 0xFF00) << 8) | 
@@ -565,8 +567,8 @@ struct ieee80211_supported_band {
     int n_channels;
     struct ieee80211_rate *bitrates;
     int n_bitrates;
-    struct ieee80211_sta_ht_cap ht_cap;   // Corrigido para struct real
-    struct ieee80211_sta_vht_cap vht_cap; // Adicionado campo vht_cap
+    struct ieee80211_sta_ht_cap ht_cap;   
+    struct ieee80211_sta_vht_cap vht_cap; 
 };
 
 // Estruturas do ecossistema Wiphy / Hardware do Linux
@@ -584,11 +586,6 @@ struct wiphy {
     const struct wiphy_vendor_command *vendor_commands;
     int n_vendor_commands;
     struct ieee80211_supported_band *bands[2];
-};
-
-struct ieee80211_hw {
-    struct wiphy *wiphy;
-    struct wiphy private_wiphy; // Espaço reservado para o cálculo do offsetof
 };
 
 // Macro de conversão de wiphy para hw
