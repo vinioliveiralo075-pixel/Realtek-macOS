@@ -212,6 +212,7 @@ struct ieee80211_ht_cap {
 
 struct ieee80211_sta {
     struct ieee80211_ht_cap ht_cap;
+    struct ieee80211_vht_cap vht_cap;
     void *drv_priv;
     u16 aid;
     u32 supp_rates[16];
@@ -222,8 +223,13 @@ struct ieee80211_key_conf {
     u32 cipher;
 };
 
+struct ieee80211_tx_rate_control {
+    unsigned int flags;
+};
+
 struct ieee80211_tx_control {
     struct ieee80211_key_conf *hw_key;
+    struct ieee80211_tx_rate_control rates[1];
 };
 
 struct ieee80211_tx_info {
@@ -477,7 +483,7 @@ static inline int in_interrupt(void) {
 #define complete(x) (void)(x)
 
 // ============================================================================
-// EMULAÇÃO DO SUBSISTEMA WIRELESS COMPLETO (PARTE 6 - FIX FINAL ORDENADO BASE)
+// EMULAÇÃO DO SUBSISTEMA WIRELESS COMPLETO (PARTE 6 - VERSÃO LIMPA SEM CONFLITOS)
 // ============================================================================
 
 #define NL80211_BAND_2GHZ 0
@@ -558,23 +564,7 @@ struct ieee80211_rate {
     int hw_value;
 };
 
-// Sub-estruturas de Taxas, HT e VHT
-struct _patch_ieee80211_mcs_cap {
-    unsigned int tx_params;
-    unsigned short rx_highest;
-    unsigned char rx_mask[10]; 
-};
-#define ieee80211_mcs_cap _patch_ieee80211_mcs_cap
-
-struct ieee80211_ht_cap {
-    bool ht_supported;
-    unsigned int cap;
-    unsigned int ampdu_factor;
-    unsigned int ampdu_density;
-    struct ieee80211_mcs_cap mcs;
-};
-#define ieee80211_sta_ht_cap ieee80211_ht_cap
-
+// Sub-estruturas de VHT
 struct ieee80211_vht_mcs_cap {
     unsigned short rx_mcs_map;
     unsigned short rx_highest;
@@ -587,7 +577,6 @@ struct ieee80211_vht_cap {
     unsigned int cap;
     struct ieee80211_vht_mcs_cap vht_mcs;
 };
-#define ieee80211_sta_vht_cap ieee80211_vht_cap
 
 struct ieee80211_supported_band {
     int band;
@@ -622,20 +611,6 @@ struct wiphy {
     unsigned int interface_modes; 
     unsigned int flags;
     int rts_threshold;
-};
-
-// Estruturas de controle de transmissão e estações cobradas no final do base.c
-struct ieee80211_tx_rate_control {
-    unsigned int flags;
-};
-
-struct ieee80211_tx_control {
-    struct ieee80211_tx_rate_control rates[1];
-};
-
-struct ieee80211_sta {
-    struct ieee80211_ht_cap ht_cap;
-    struct ieee80211_vht_cap vht_cap;
 };
 
 // Funções emuladas de rede e rfkill do kernel
