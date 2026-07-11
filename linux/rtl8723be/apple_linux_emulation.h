@@ -612,10 +612,6 @@ struct i_chandef {
     struct ieee80211_channel *chan;
 };
 
-struct ieee80211_hw_conf {
-    struct i_chandef chandef;
-};
-
 struct wiphy {
     const struct wiphy_vendor_command *vendor_commands;
     int n_vendor_commands;
