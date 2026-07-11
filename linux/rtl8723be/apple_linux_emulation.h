@@ -225,7 +225,7 @@ struct ieee80211_tx_info {
 // --- 7. STUBS DE FUNÇÕES, ALOCADORES E MEMÓRIA ---
 #define GFP_KERNEL 0
 static inline void *kzalloc(size_t size, int flags) { return IOMallocZero(size); }
-#define kfree(ptr) do { if (ptr) { (void)(ptr); } } while(0)
+#define kfree(ptr) do { if (ptr) { IOFree(ptr, size); } } while(0)
 
 #define spin_lock(lock)
 #define spin_unlock(lock)
