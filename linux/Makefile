@@ -1,170 +1,66 @@
-# SPDX-License-Identifier: GPL-2.0
-SHELL := /bin/sh
-CC = gcc
-KVER  := $(shell uname -r)
-#KVER  :=
-KSRC := /lib/modules/$(KVER)/build
-#KSRC := /work/linux-src/linux-stable
-FIRMWAREDIR := /lib/firmware/
-PWD := $(shell pwd)
-CLR_MODULE_FILES := *.mod.c *.mod *.o .*.cmd *.ko *~ .tmp_versions* modules.order Module.symvers
-SYMBOL_FILE := Module.symvers
-# Handle the move of the entire rtlwifi tree
-ifneq ("","$(wildcard /lib/modules/$(KVER)/kernel/drivers/net/wireless/realtek)")
-MODDESTDIR := /lib/modules/$(KVER)/kernel/drivers/net/wireless/realtek/rtlwifi
-else
-MODDESTDIR := /lib/modules/$(KVER)/kernel/drivers/net/wireless/rtlwifi
-endif
+# ====================================================================
+# Makefile Unificado para macOS (Kext RTL8723BE) - Vini Tech
+# ====================================================================
 
-#Handle the compression option for modules in 3.18+
-ifneq ("","$(wildcard $(MODDESTDIR)/*.ko.gz)")
-COMPRESS_GZIP := y
-endif
-ifneq ("","$(wildcard $(MODDESTDIR)/*.ko.xz)")
-COMPRESS_XZ := y
-endif
+SDKPATH = $(shell xcrun --show-sdk-path)
+CC = clang
 
-ccflags-y += -O2
+# Parâmetros de compilação do Kernel do macOS (X86_64)
+# Inclui os caminhos corretos de todas as subpastas que guardam os códigos da Realtek
+CFLAGS = -mkernel -arch x86_64 -nostdinc -target x86_64-apple-macos12 -w \
+         -I$(SDKPATH)/System/Library/Frameworks/Kernel.framework/Headers \
+         -I$(SDKPATH)/usr/include \
+         -I. -Irtl8723be -Irtl8723com -Ibtcoexist \
+         -DKERNEL -DKERNEL_PRIVATE -fno-builtin -DCONFIG_RTLWIFI_DEBUG
 
-obj-m		+= rtlwifi.o
-rtlwifi-objs	:=		\
-		base.o		\
-		cam.o		\
-		core.o		\
-		debug.o		\
-		efuse.o		\
-		ps.o		\
-		rc.o		\
-		regd.o		\
-		stats.o
+# Parâmetros de Linkagem da Kext
+LDFLAGS = -mkernel -arch x86_64 -Xlinker -kext -nostdlib \
+          -I$(SDKPATH)/System/Library/Frameworks/Kernel.framework/Headers \
+          -Xlinker -rpath -Xlinker /System/Library/Extensions \
+          -lkmod -lcc_kext -target x86_64-apple-macos12
 
-rtl8192c_common-objs +=		\
+# 1. ARQUIVOS DA PASTA RAIZ (Arquivos base do rtlwifi do Linux que migraram)
+ROOT_OBJS = base.o cam.o core.o debug.o efuse.o ps.o rc.o regd.o stats.o pci.o usb.o
 
-obj-m				+= rtl_pci.o
-rtl_pci-objs	:=		pci.o
+# 2. ARQUIVOS DA SUBPASTA rtl8723be (Onde está o wrapper e os arquivos específicos do chip)
+# Nota: Adicionei o seu RTL8723BE_MacDriver.o aqui!
+BE_OBJS = rtl8723be/dm.o rtl8723be/fw.o rtl8723be/hw.o rtl8723be/led.o \
+          rtl8723be/phy.o rtl8723be/pwrseq.o rtl8723be/pwrseqcmd.o \
+          rtl8723be/rf.o rtl8723be/sw.o rtl8723be/table.o rtl8723be/trx.o \
+          rtl8723be/RTL8723BE_MacDriver.o
 
-obj-m				+= rtl_usb.o
-rtl_usb-objs	:=		usb.o
+# 3. ARQUIVOS DA SUBPASTA btcoexist (Controle de interferência Bluetooth/Wi-Fi)
+BTC_OBJS = btcoexist/halbtc8723b1ant.o btcoexist/halbtc8723b2ant.o \
+           btcoexist/halbtcoutsrc.o btcoexist/rtl_btc.o
 
-obj-m				+= rtl8192c/
-obj-m				+= rtl8192ce/
-obj-m				+= rtl8192cu/
-obj-m				+= rtl8192se/
-obj-m				+= rtl8192de/
-obj-m				+= rtl8723ae/
-obj-m				+= rtl8723be/
-obj-m				+= rtl8723de/
-obj-m				+= rtl8188ee/
-obj-m				+= btcoexist/
-obj-m				+= halmac/
-obj-m				+= phydm/
-obj-m				+= rtl8723com/
-obj-m				+= rtl8821ae/
-obj-m				+= rtl8822be/
-obj-m				+= rtl8192ee/
+# 4. ARQUIVOS DA SUBPASTA rtl8723com (Funções comuns compartilhadas)
+COM_OBJS = rtl8723com/dm_common.o rtl8723com/fw_common.o rtl8723com/main.o \
+           rtl8723com/phy_common.o
 
-ccflags-y += -D__CHECK_ENDIAN__
-#subdir-ccflags-y += -Werror
-ccflags-y += -DCONFIG_RTLWIFI_DEBUG
-subdir-ccflags-y += -DCONFIG_RTLWIFI_DEBUG
+# Junta todas as listas de objetos que precisam ser criadas
+OBJS = $(ROOT_OBJS) $(BE_OBJS) $(BTC_OBJS) $(COM_OBJS)
 
-ifeq ("$(KVER)", $(filter "$(KVER)", "3.14.35-031435-generic" "3.14.35-031435-lowlatency"))
-ccflags-y += -D_ieee80211_is_robust_mgmt_frame=ieee80211_is_robust_mgmt_frame
-subdir-ccflags-y += -D_ieee80211_is_robust_mgmt_frame=ieee80211_is_robust_mgmt_frame
-endif
+# Destino final do binário dentro da estrutura do Mac
+TARGET = RTL8723BE_MacDriver.kext/Contents/MacOS/RTL8723BE_MacDriver
 
-# for uncooked code
-uncooked_ccflags-y += -DBT_SUPPORT=1
-uncooked_ccflags-y += -DCOEX_SUPPORT=1
-uncooked_ccflags-y += -DRTL8822B_SUPPORT=1
-uncooked_ccflags-y += -DRTL8723D_SUPPORT=1
-ccflags-y += $(uncooked_ccflags-y)
-subdir-ccflags-y += $(uncooked_ccflags-y)
+all: $(TARGET)
 
-CHECKFLAGS += -D__CHECK_ENDIAN__
+$(TARGET): $(OBJS)
+	@echo "============================================="
+	@echo "Linkando e gerando o binário final da Kext..."
+	@echo "============================================="
+	@mkdir -p RTL8723BE_MacDriver.kext/Contents/MacOS
+	$(CC) $(LDFLAGS) $(OBJS) -o $(TARGET)
+	@echo "Kext compilada com sucesso!"
 
-all:
-	$(MAKE) -C $(KSRC) M=$(PWD) modules
-install: all
-ifeq (,$(wildcard ./backup_drivers.tar))
-	@echo Making backups
-	@tar cPf backup_drivers.tar $(MODDESTDIR)
-endif
+# Regra para compilar qualquer arquivo C do projeto (Raiz ou Subpastas)
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
-	@mkdir -p $(MODDESTDIR)/btcoexist
-	@mkdir -p $(MODDESTDIR)/halmac
-	@mkdir -p $(MODDESTDIR)/phydm
-	@mkdir -p $(MODDESTDIR)/rtl8188ee
-	@mkdir -p $(MODDESTDIR)/rtl8192c
-	@mkdir -p $(MODDESTDIR)/rtl8192ce
-	@mkdir -p $(MODDESTDIR)/rtl8192cu
-	@mkdir -p $(MODDESTDIR)/rtl8192de
-	@mkdir -p $(MODDESTDIR)/rtl8192ee
-	@mkdir -p $(MODDESTDIR)/rtl8192se
-	@mkdir -p $(MODDESTDIR)/rtl8723ae
-	@mkdir -p $(MODDESTDIR)/rtl8723be
-	@mkdir -p $(MODDESTDIR)/rtl8723de
-	@mkdir -p $(MODDESTDIR)/rtl8723com
-	@mkdir -p $(MODDESTDIR)/rtl8821ae
-	@mkdir -p $(MODDESTDIR)/rtl8822be
-	@install -p -D -m 644 rtl_pci.ko $(MODDESTDIR)
-	@install -p -D -m 644 rtl_usb.ko $(MODDESTDIR)
-	@install -p -D -m 644 rtlwifi.ko $(MODDESTDIR)
-	@install -p -D -m 644 ./btcoexist/btcoexist.ko $(MODDESTDIR)/btcoexist
-	@install -p -D -m 644 ./halmac/halmac.ko $(MODDESTDIR)/halmac
-	@install -p -D -m 644 ./phydm/phydm_mod.ko $(MODDESTDIR)/phydm
-	@install -p -D -m 644 ./rtl8188ee/rtl8188ee.ko $(MODDESTDIR)/rtl8188ee
-	@install -p -D -m 644 ./rtl8192c/rtl8192c-common.ko $(MODDESTDIR)/rtl8192c
-	@install -p -D -m 644 ./rtl8192ce/rtl8192ce.ko $(MODDESTDIR)/rtl8192ce
-	@install -p -D -m 644 ./rtl8192cu/rtl8192cu.ko $(MODDESTDIR)/rtl8192cu
-	@install -p -D -m 644 ./rtl8192de/rtl8192de.ko $(MODDESTDIR)/rtl8192de
-	@install -p -D -m 644 ./rtl8192ee/rtl8192ee.ko $(MODDESTDIR)/rtl8192ee
-	@install -p -D -m 644 ./rtl8192se/rtl8192se.ko $(MODDESTDIR)/rtl8192se
-	@install -p -D -m 644 ./rtl8723ae/rtl8723ae.ko $(MODDESTDIR)/rtl8723ae
-	@install -p -D -m 644 ./rtl8723be/rtl8723be.ko $(MODDESTDIR)/rtl8723be
-	@install -p -D -m 644 ./rtl8723de/rtl8723de.ko $(MODDESTDIR)/rtl8723de
-	@install -p -D -m 644 ./rtl8821ae/rtl8821ae.ko $(MODDESTDIR)/rtl8821ae
-	@install -p -D -m 644 ./rtl8822be/rtl8822be.ko $(MODDESTDIR)/rtl8822be
-	@install -p -D -m 644 ./rtl8723com/rtl8723-common.ko $(MODDESTDIR)/rtl8723com
-ifeq ($(COMPRESS_GZIP), y)
-	@gzip -f $(MODDESTDIR)/*.ko
-	@gzip -f $(MODDESTDIR)/btcoexist/*.ko
-	@gzip -f $(MODDESTDIR)/rtl8*/*.ko
-	@gzip -f $(MODDESTDIR)/halmac/*.ko
-	@gzip -f $(MODDESTDIR)/phydm/*.ko
-endif
-ifeq ($(COMPRESS_XZ), y)
-	@xz -f $(MODDESTDIR)/*.ko
-	@xz -f $(MODDESTDIR)/btcoexist/*.ko
-	@xz -f $(MODDESTDIR)/rtl8*/*.ko
-	@xz -f $(MODDESTDIR)/halmac/*.ko
-	@xz -f $(MODDESTDIR)/phydm/*.ko
-endif
-
-	@depmod -a
-
-	@#copy firmware images to target folder
-	@cp -fr firmware/rtlwifi/ $(FIRMWAREDIR)/
-	@echo "Install rtlwifi SUCCESS"
-
-uninstall:
-ifneq (,$(wildcard ./backup_drivers.tar))
-	@echo Restoring backups
-	@tar xvPf backup_drivers.tar
-endif
-
-	@depmod -a
-
-	@echo "Uninstall rtlwifi SUCCESS"
+# Regra para compilar o arquivo C++ do driver do macOS
+%.o: %.cpp
+	$(CC) $(CFLAGS) -std=c++11 -fno-rtti -fno-exceptions -c $< -o $@
 
 clean:
-	@find halmac/ \( -name "*.mod.c" -o -name "*.mod" -o -name "*.o" -o -name ".*.cmd" -o -name "*.ko" -o -name "*~" \) -exec rm {} \;
-	@find phydm/ \( -name "*.mod.c" -o -name "*.mod" -o -name "*.o" -o -name ".*.cmd" -o -name "*.ko" -o -name "*~" \) -exec rm {} \;
-	@rm -fr *.mod.c *.mod *.o .*.cmd *.ko *~
-	@rm -fr rtl8*/*.mod.c rtl8*/*.mod rtl8*/*.o rtl8*/.*.cmd rtl8*/*.ko rtl8*/*~
-	@rm -fr bt*/*.mod.c bt*/*.mod bt*/*.o bt*/.*.cmd bt*/*.ko bt*/*~
-	@rm -fr .tmp_versions
-	@rm -fr Modules.symvers
-	@rm -fr Module.symvers
-	@rm -fr Module.markers
-	@rm -fr modules.order
+	@echo "Limpando arquivos antigos..."
+	rm -f *.o rtl8723be/*.o btcoexist/*.o rtl8723com/*.o $(TARGET)
