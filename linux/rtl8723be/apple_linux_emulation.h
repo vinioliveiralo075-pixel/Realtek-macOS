@@ -205,11 +205,28 @@ struct ieee80211_mcs_cap {
 };
 
 struct ieee80211_ht_cap {
+    bool ht_supported; // Necessário para a checagem no base.c
     u32 cap;
     struct ieee80211_mcs_cap mcs; 
     u8 ampdu_density;
+    unsigned int ampdu_factor;
 };
 
+// Sub-estruturas de VHT (Inseridas antes da sta para evitar tipo incompleto)
+struct ieee80211_vht_mcs_cap {
+    unsigned short rx_mcs_map;
+    unsigned short rx_highest;
+    unsigned short tx_mcs_map;
+    unsigned short tx_highest;
+};
+
+struct ieee80211_vht_cap {
+    bool vht_supported;
+    unsigned int cap;
+    struct ieee80211_vht_mcs_cap vht_mcs;
+};
+
+// Definição única e correta da estrutura da Estação
 struct ieee80211_sta {
     struct ieee80211_ht_cap ht_cap;
     struct ieee80211_vht_cap vht_cap;
@@ -562,20 +579,6 @@ struct ieee80211_rate {
     unsigned int bitrate;
     unsigned int flags;
     int hw_value;
-};
-
-// Sub-estruturas de VHT
-struct ieee80211_vht_mcs_cap {
-    unsigned short rx_mcs_map;
-    unsigned short rx_highest;
-    unsigned short tx_mcs_map;
-    unsigned short tx_highest;
-};
-
-struct ieee80211_vht_cap {
-    bool vht_supported;
-    unsigned int cap;
-    struct ieee80211_vht_mcs_cap vht_mcs;
 };
 
 struct ieee80211_supported_band {
