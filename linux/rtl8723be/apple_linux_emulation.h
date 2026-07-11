@@ -472,7 +472,7 @@ static inline int in_interrupt(void) {
 #define complete(x) (void)(x)
 
 // ============================================================================
-// EMULAÇÃO DO SUBSISTEMA WIRELESS COMPLETO (PARTE 6 - FIX DO TIPO)
+// EMULAÇÃO DO SUBSISTEMA WIRELESS COMPLETO (PARTE 6 - SUPORTE A HW_SET E VENDOR)
 // ============================================================================
 
 #define NL80211_BAND_2GHZ 0
@@ -502,6 +502,26 @@ static inline int in_interrupt(void) {
 // Flags de comandos de fabricante (Vendor Commands)
 #define WIPHY_VENDOR_CMD_NEED_WDEV    (1 << 0)
 #define WIPHY_VENDOR_CMD_NEED_NETDEV  (1 << 1)
+
+// Identificadores adicionais de IFTYPE que faltaram
+#define NL80211_IFTYPE_P2P_CLIENT     8
+#define NL80211_IFTYPE_P2P_GO         9
+
+// Enum/Flags para o ieee80211_hw_set
+enum ieee80211_hw_set_type {
+    SIGNAL_DBM = 0,
+    RX_INCLUDES_FCS,
+    AMPDU_AGGREGATION,
+    CONNECTION_MONITOR,
+    MFP_CAPABLE,
+    REPORTS_TX_ACK_STATUS,
+    SUPPORTS_TX_FRAG,
+    SUPPORT_FAST_XMIT,
+    SUPPORTS_AMSDU_IN_AMPDU,
+    SUPPORTS_PS,
+    PS_NULLFUNC_STACK,
+    SUPPORTS_DYNAMIC_PS
+};
 
 // Tipos Big Endian e funções de conversão inline
 typedef unsigned short __be16;
@@ -575,8 +595,10 @@ struct wireless_dev {
     int dummy;
 };
 
+// Corrigido para struct real contendo os campos nomeados que o base.c tenta inicializar
 struct wiphy_vendor_command {
-    unsigned int info_idx;
+    unsigned int vendor_id;
+    unsigned int subcmd;
     unsigned int flags;
     const void *doit;
 };
@@ -585,10 +607,15 @@ struct wiphy {
     const struct wiphy_vendor_command *vendor_commands;
     int n_vendor_commands;
     struct ieee80211_supported_band *bands[2];
+    unsigned int interface_modes; // Adicionado campo cobrado na linha 549
 };
 
-// Como alteramos a struct ieee80211_hw para ter o ponteiro *wiphy no começo, 
-// podemos fazer a conversão direta de tipo sem quebrar o compilador!
+// Função exigida na linha 504
+static inline void ieee80211_hw_set(struct ieee80211_hw *hw, enum ieee80211_hw_set_type type) {
+    (void)hw; (void)type;
+}
+
+// Macro de conversão de wiphy para hw
 #define wiphy_to_ieee80211_hw(w) ((struct ieee80211_hw *)(w))
 
 #endif // APPLE_LINUX_EMULATION_H
