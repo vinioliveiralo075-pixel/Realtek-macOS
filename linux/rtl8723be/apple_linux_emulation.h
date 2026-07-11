@@ -184,6 +184,7 @@ struct ieee80211_hw {
     int max_rate_tries;
     size_t sta_data_size;
     struct ieee80211_hw_conf conf;
+    const char *rate_control_algorithm;
 };
 
 // Estrutura de status de recepção de pacotes
@@ -476,7 +477,7 @@ static inline int in_interrupt(void) {
 #define complete(x) (void)(x)
 
 // ============================================================================
-// EMULAÇÃO DO SUBSISTEMA WIRELESS COMPLETO (PARTE 6 - BLOCO UNIFICADO TRX/BASE)
+// EMULAÇÃO DO SUBSISTEMA WIRELESS COMPLETO (PARTE 6 - FIX FINAL ORDENADO BASE)
 // ============================================================================
 
 #define NL80211_BAND_2GHZ 0
@@ -503,7 +504,8 @@ static inline int in_interrupt(void) {
 #define IEEE80211_VHT_MCS_SUPPORT_0_9                    0
 #define IEEE80211_VHT_MCS_NOT_SUPPORTED                  3
 
-// Flags de comandos de fabricante e Wiphy
+// Flags extras do tx control e wiphy
+#define IEEE80211_TX_RC_USE_SHORT_PREAMBLE (1 << 0)
 #define WIPHY_VENDOR_CMD_NEED_WDEV    (1 << 0)
 #define WIPHY_VENDOR_CMD_NEED_NETDEV  (1 << 1)
 #define WIPHY_FLAG_IBSS_RSN           (1 << 2)
@@ -556,7 +558,7 @@ struct ieee80211_rate {
     int hw_value;
 };
 
-// Remendo para HT mcs
+// Sub-estruturas de Taxas, HT e VHT
 struct _patch_ieee80211_mcs_cap {
     unsigned int tx_params;
     unsigned short rx_highest;
@@ -564,13 +566,14 @@ struct _patch_ieee80211_mcs_cap {
 };
 #define ieee80211_mcs_cap _patch_ieee80211_mcs_cap
 
-struct ieee80211_sta_ht_cap {
+struct ieee80211_ht_cap {
     bool ht_supported;
     unsigned int cap;
     unsigned int ampdu_factor;
     unsigned int ampdu_density;
     struct ieee80211_mcs_cap mcs;
 };
+#define ieee80211_sta_ht_cap ieee80211_ht_cap
 
 struct ieee80211_vht_mcs_cap {
     unsigned short rx_mcs_map;
@@ -579,11 +582,12 @@ struct ieee80211_vht_mcs_cap {
     unsigned short tx_highest;
 };
 
-struct ieee80211_sta_vht_cap {
+struct ieee80211_vht_cap {
     bool vht_supported;
     unsigned int cap;
     struct ieee80211_vht_mcs_cap vht_mcs;
 };
+#define ieee80211_sta_vht_cap ieee80211_vht_cap
 
 struct ieee80211_supported_band {
     int band;
@@ -591,15 +595,15 @@ struct ieee80211_supported_band {
     int n_channels;
     struct ieee80211_rate *bitrates;
     int n_bitrates;
-    struct ieee80211_sta_ht_cap ht_cap;   
-    struct ieee80211_sta_vht_cap vht_cap; 
+    struct ieee80211_ht_cap ht_cap;   
+    struct ieee80211_vht_cap vht_cap; 
 };
 
 struct wireless_dev {
     int dummy;
 };
 
-// Definição real e limpa para evitar erro de inicialização não-agregada
+// Definição real e robusta para evitar erro de inicialização não-agregada
 struct wiphy_vendor_command {
     unsigned int vendor_id;
     unsigned int subcmd;
@@ -607,7 +611,6 @@ struct wiphy_vendor_command {
     const void *doit;
 };
 
-// Sub-estruturas de configuração exigidas pelo trx.c
 struct i_chandef {
     struct ieee80211_channel *chan;
 };
@@ -621,7 +624,21 @@ struct wiphy {
     int rts_threshold;
 };
 
-// Funções emuladas de rede e endereços do kernel
+// Estruturas de controle de transmissão e estações cobradas no final do base.c
+struct ieee80211_tx_rate_control {
+    unsigned int flags;
+};
+
+struct ieee80211_tx_control {
+    struct ieee80211_tx_rate_control rates[1];
+};
+
+struct ieee80211_sta {
+    struct ieee80211_ht_cap ht_cap;
+    struct ieee80211_vht_cap vht_cap;
+};
+
+// Funções emuladas de rede e rfkill do kernel
 static inline void ieee80211_hw_set(struct ieee80211_hw *hw, enum ieee80211_hw_set_type type) {
     (void)hw; (void)type;
 }
@@ -632,9 +649,19 @@ static inline bool is_valid_ether_addr(const unsigned char *addr) {
 static inline void get_random_bytes(void *buf, int nbytes) {
     (void)buf; (void)nbytes;
 }
+#define wiphy_rfkill_set_hw_state(w, s) ((void)(w), (void)(s))
+#define wiphy_rfkill_start_polling(w) ((void)(w))
+#define wiphy_rfkill_stop_polling(w) ((void)(w))
 
-// Funções de Timers e Workqueues
+// Funções de Inicialização de Trabalho, Timers e Locks
 #define timer_setup(timer, callback, flags) ((void)(timer), (void)(callback), (void)(flags))
+#define del_timer_sync(t) ((void)(t))
+#define INIT_DELAYED_WORK(w, f) ((void)(w), (void)(f))
+#define cancel_delayed_work(w) ((void)(w))
+#define mutex_init(m) ((void)(m))
+#define spin_lock_init(l) ((void)(l))
+#define INIT_LIST_HEAD(h) ((void)(h))
+
 static inline void *alloc_workqueue(const char *fmt, unsigned int flags, int max_active, ...) {
     (void)fmt; (void)flags; (void)max_active; return (void *)1;
 }
