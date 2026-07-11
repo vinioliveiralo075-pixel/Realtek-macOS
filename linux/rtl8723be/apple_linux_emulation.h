@@ -177,9 +177,11 @@ struct ieee80211_hw_conf {
 
 struct ieee80211_hw {
     struct wiphy *wiphy;
-    void *priv; 
-    void *vif; 
-    struct ieee80211_hw_conf conf;
+    int queues;
+    int extra_tx_headroom;
+    int max_listen_interval;
+    int max_rate_tries;
+    size_t sta_data_size;
 };
 
 // Estrutura de status de recepção de pacotes
@@ -472,7 +474,7 @@ static inline int in_interrupt(void) {
 #define complete(x) (void)(x)
 
 // ============================================================================
-// EMULAÇÃO DO SUBSISTEMA WIRELESS COMPLETO (PARTE 6 - SUPORTE A HW_SET E VENDOR)
+// EMULAÇÃO DO SUBSISTEMA WIRELESS COMPLETO (PARTE 6 - SUPORTE FINAL BASE.C)
 // ============================================================================
 
 #define NL80211_BAND_2GHZ 0
@@ -499,11 +501,13 @@ static inline int in_interrupt(void) {
 #define IEEE80211_VHT_MCS_SUPPORT_0_9                    0
 #define IEEE80211_VHT_MCS_NOT_SUPPORTED                  3
 
-// Flags de comandos de fabricante (Vendor Commands)
+// Flags de comandos de fabricante e Wiphy
 #define WIPHY_VENDOR_CMD_NEED_WDEV    (1 << 0)
 #define WIPHY_VENDOR_CMD_NEED_NETDEV  (1 << 1)
+#define WIPHY_FLAG_IBSS_RSN           (1 << 2)
+#define WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL (1 << 3)
 
-// Identificadores adicionais de IFTYPE que faltaram
+// Identificadores de IFTYPE
 #define NL80211_IFTYPE_P2P_CLIENT     8
 #define NL80211_IFTYPE_P2P_GO         9
 
@@ -550,7 +554,7 @@ struct ieee80211_rate {
     int hw_value;
 };
 
-// Remendo para suportar rx_mask e rx_highest da estrutura MCS do HT
+// Remendo para HT mcs
 struct _patch_ieee80211_mcs_cap {
     unsigned int tx_params;
     unsigned short rx_highest;
@@ -566,7 +570,6 @@ struct ieee80211_sta_ht_cap {
     struct ieee80211_mcs_cap mcs;
 };
 
-// Sub-estrutura para as taxas de transmissão do Wi-Fi AC (VHT)
 struct ieee80211_vht_mcs_cap {
     unsigned short rx_mcs_map;
     unsigned short rx_highest;
@@ -590,12 +593,11 @@ struct ieee80211_supported_band {
     struct ieee80211_sta_vht_cap vht_cap; 
 };
 
-// Estruturas do ecossistema Wiphy / Hardware do Linux
 struct wireless_dev {
     int dummy;
 };
 
-// Corrigido para struct real contendo os campos nomeados que o base.c tenta inicializar
+// Definição real e limpa para evitar erro de inicialização não-agregada
 struct wiphy_vendor_command {
     unsigned int vendor_id;
     unsigned int subcmd;
@@ -607,12 +609,27 @@ struct wiphy {
     const struct wiphy_vendor_command *vendor_commands;
     int n_vendor_commands;
     struct ieee80211_supported_band *bands[2];
-    unsigned int interface_modes; // Adicionado campo cobrado na linha 549
+    unsigned int interface_modes; 
+    unsigned int flags;
+    int rts_threshold;
 };
 
-// Função exigida na linha 504
+// Funções emuladas de rede e endereços do kernel
 static inline void ieee80211_hw_set(struct ieee80211_hw *hw, enum ieee80211_hw_set_type type) {
     (void)hw; (void)type;
+}
+static inline bool is_valid_ether_addr(const unsigned char *addr) {
+    (void)addr; return true;
+}
+#define SET_IEEE80211_PERM_ADDR(hw, addr) ((void)(hw), (void)(addr))
+static inline void get_random_bytes(void *buf, int nbytes) {
+    (void)buf; (void)nbytes;
+}
+
+// Funções de Timers e Workqueues
+#define timer_setup(timer, callback, flags) ((void)(timer), (void)(callback), (void)(flags))
+static inline void *alloc_workqueue(const char *fmt, unsigned int flags, int max_active, ...) {
+    (void)fmt; (void)flags; (void)max_active; return (void *)1;
 }
 
 // Macro de conversão de wiphy para hw
