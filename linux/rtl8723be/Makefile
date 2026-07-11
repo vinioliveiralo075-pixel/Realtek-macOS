@@ -1,44 +1,30 @@
-# Detecta o caminho do SDK automaticamente
-SDKPATH := $(shell xcrun --sdk macosx --show-sdk-path)
+# Caminho automático para o SDK do macOS (Garante que o Clang ache as bibliotecas)
+SDKPATH = $(shell xcrun --show-sdk-path)
 
 CC = clang
-CXX = clang++
+CFLAGS = -mkernel -arch x86_64 -nostdinc -target x86_64-apple-macos12 \
+         -I$(SDKPATH)/System/Library/Frameworks/Kernel.framework/Headers \
+         -I$(SDKPATH)/usr/include \
+         -I. -D__KERNEL__ -Wno-implicit-function-declaration -Wno-incompatible-pointer-types
 
-# Flags essenciais para Kext: -mkernel, -nostdlib, -target (macOS 12.0)
-KEXT_FLAGS = -mkernel -arch x86_64 -fno-builtin -g -O2 -DKERNEL -D_KERNEL -DKERNEL_PRIVATE -DAPPLE -std=gnu99 -w \
-             -target x86_64-apple-macos12 \
-             -I. -I.. -I../.. \
-             -I$(SDKPATH)/System/Library/Frameworks/Kernel.framework/Headers \
-             -iframework $(SDKPATH)/System/Library/Frameworks
+# LDFLAGS corrigido com -lc++_kext e o caminho do SDK (-L)
+LDFLAGS = -mkernel -arch x86_64 -Xlinker -kext -nostdlib -L$(SDKPATH)/usr/lib \
+          -lkmodc++ -lc++_kext -lkmod -lcc_kext -target x86_64-apple-macos12
 
-CFLAGS = $(KEXT_FLAGS)
-CXXFLAGS = $(KEXT_FLAGS) -std=c++11 -fno-rtti -fno-exceptions
+OBJS = dm.o fw.o hw.o led.o phy.o pwrseq.o pwrseqcmd.o rf.o sw.o table.o trx.o RTL8723BE_MacDriver.o
+TARGET = RTL8723BE_MacDriver.kext/Contents/MacOS/RTL8723BE_MacDriver
 
-# CORREÇÃO: Adicionado -lc++ obrigatório para linkar o disfarce do HeliPort em C++ no Monterey
-LDFLAGS = -mkernel -arch x86_64 -Xlinker -kext -nostdlib -lkmodc++ -lc++ -lkmod -lcc_kext -target x86_64-apple-macos12
+all: $(TARGET)
 
-KEXT_NAME = RTL8723BE_MacDriver
-KEXT_BUNDLE = $(KEXT_NAME).kext
-KEXT_BINARY = $(KEXT_BUNDLE)/Contents/MacOS/$(KEXT_NAME)
-
-# Compila apenas os arquivos locais para evitar conflito com as fontes do Linux
-C_SRCS = $(wildcard *.c)
-CPP_SRCS = $(wildcard *.cpp)
-OBJS = $(C_SRCS:.c=.o) $(CPP_SRCS:.cpp=.o)
-
-all: $(KEXT_BINARY)
-
-$(KEXT_BINARY): $(OBJS)
-	@mkdir -p $(KEXT_BUNDLE)/Contents/MacOS
-	$(CC) $(LDFLAGS) $(OBJS) -o $(KEXT_BINARY)
-	@cp -f Info.plist $(KEXT_BUNDLE)/Contents/Info.plist
-	@echo "Kext criada com sucesso!"
+$(TARGET): $(OBJS)
+	@mkdir -p RTL8723BE_MacDriver.kext/Contents/MacOS
+	$(CC) $(LDFLAGS) $(OBJS) -o $(TARGET)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -std=c++11 -fno-rtti -fno-exceptions -c $< -o $@
 
 clean:
-	rm -rf *.o $(KEXT_BUNDLE)
+	rm -f *.o $(TARGET)
