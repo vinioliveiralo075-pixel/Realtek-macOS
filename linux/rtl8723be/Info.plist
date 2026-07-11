@@ -28,7 +28,7 @@
             <string>RTL8723BE_MacDriver</string>
             <key>IOMatchCategory</key>
             <string>RTL8723BE_MacDriver</string>
-            <key>IOPPCIPrimaryMatch</key>
+            <key>IOPCIPrimaryMatch</key>
             <string>0xB72310EC</string>
             <key>IOProviderClass</key>
             <string>IOPCIDevice</string>
@@ -40,6 +40,8 @@
         <string>1.0.0b1</string>
         <key>com.apple.iokit.IOPCIFamily</key>
         <string>1.0.0b1</string>
+        <key>com.apple.kpi.bsd</key>
+        <string>21.0.0</string>
         <key>com.apple.kpi.iokit</key>
         <string>21.0.0</string>
         <key>com.apple.kpi.libkern</key>
