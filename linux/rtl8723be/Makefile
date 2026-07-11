@@ -14,13 +14,14 @@ KEXT_FLAGS = -mkernel -arch x86_64 -fno-builtin -g -O2 -DKERNEL -D_KERNEL -DKERN
 CFLAGS = $(KEXT_FLAGS)
 CXXFLAGS = $(KEXT_FLAGS) -std=c++11 -fno-rtti -fno-exceptions
 
-LDFLAGS = -mkernel -arch x86_64 -Xlinker -kext -nostdlib -lkmodc++ -lkmod -lcc_kext -target x86_64-apple-macos12
+# CORREÇÃO: Adicionado -lc++ obrigatório para linkar o disfarce do HeliPort em C++ no Monterey
+LDFLAGS = -mkernel -arch x86_64 -Xlinker -kext -nostdlib -lkmodc++ -lc++ -lkmod -lcc_kext -target x86_64-apple-macos12
 
 KEXT_NAME = RTL8723BE_MacDriver
 KEXT_BUNDLE = $(KEXT_NAME).kext
 KEXT_BINARY = $(KEXT_BUNDLE)/Contents/MacOS/$(KEXT_NAME)
 
-# CORREÇÃO: Compila apenas os arquivos locais para evitar conflito com o Linux
+# Compila apenas os arquivos locais para evitar conflito com as fontes do Linux
 C_SRCS = $(wildcard *.c)
 CPP_SRCS = $(wildcard *.cpp)
 OBJS = $(C_SRCS:.c=.o) $(CPP_SRCS:.cpp=.o)
