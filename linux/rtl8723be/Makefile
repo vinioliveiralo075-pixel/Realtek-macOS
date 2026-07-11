@@ -7,8 +7,10 @@ CFLAGS = -mkernel -arch x86_64 -nostdinc -target x86_64-apple-macos12 -w \
          -I$(SDKPATH)/usr/include \
          -I. -DKERNEL -DKERNEL_PRIVATE -fno-builtin
 
-LDFLAGS = -mkernel -arch x86_64 -Xlinker -kext -nostdlib -L$(SDKPATH)/usr/lib -w \
-          -lkmodc++ -lc++_kext -lkmod -lcc_kext -target x86_64-apple-macos12
+LDFLAGS = -mkernel -arch x86_64 -Xlinker -kext -nostdlib \
+          -I$(SDKPATH)/System/Library/Frameworks/Kernel.framework/Headers \
+          -Xlinker -rpath -Xlinker /System/Library/Extensions \
+          -lkmod -lcc_kext -target x86_64-apple-macos12
 
 OBJS = dm.o fw.o hw.o led.o phy.o pwrseq.o pwrseqcmd.o rf.o sw.o table.o trx.o RTL8723BE_MacDriver.o
 TARGET = RTL8723BE_MacDriver.kext/Contents/MacOS/RTL8723BE_MacDriver
