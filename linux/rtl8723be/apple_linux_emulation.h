@@ -175,9 +175,8 @@ struct ieee80211_hw_conf {
     struct ieee80211_chandef chandef;
 };
 
-struct ieee80211_hw { 
+struct ieee80211_hw {
     struct wiphy *wiphy;
-    struct wiphy private_wiphy;
     void *priv; 
     void *vif; 
     struct ieee80211_hw_conf conf;
@@ -473,7 +472,7 @@ static inline int in_interrupt(void) {
 #define complete(x) (void)(x)
 
 // ============================================================================
-// EMULAÇÃO DO SUBSISTEMA WIRELESS COMPLETO (PARTE 6 - REVISADO)
+// EMULAÇÃO DO SUBSISTEMA WIRELESS COMPLETO (PARTE 6 - FIX DO TIPO)
 // ============================================================================
 
 #define NL80211_BAND_2GHZ 0
@@ -588,7 +587,8 @@ struct wiphy {
     struct ieee80211_supported_band *bands[2];
 };
 
-// Macro de conversão de wiphy para hw
-#define wiphy_to_ieee80211_hw(w) ((struct ieee80211_hw *)((char *)(w) - offsetof(struct ieee80211_hw, private_wiphy)))
+// Como alteramos a struct ieee80211_hw para ter o ponteiro *wiphy no começo, 
+// podemos fazer a conversão direta de tipo sem quebrar o compilador!
+#define wiphy_to_ieee80211_hw(w) ((struct ieee80211_hw *)(w))
 
 #endif // APPLE_LINUX_EMULATION_H
