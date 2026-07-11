@@ -183,14 +183,8 @@ int rtl8723be_init_sw_vars(struct ieee80211_hw *hw)
 
 	rtlpriv->max_fw_size = 0x8000;
 	pr_info("Using firmware %s\n", fw_name);
-	err = request_firmware_nowait(THIS_MODULE, 1, fw_name,
-				      rtlpriv->io.dev, GFP_KERNEL, hw,
-				      rtl_fw_cb);
-	if (err) {
-		pr_err("Failed to request firmware!\n");
-		vfree(rtlpriv->rtlhal.pfirmware);
-		rtlpriv->rtlhal.pfirmware = NULL;
-		return 1;
+
+	return 0;
 	}
 	return 0;
 }
