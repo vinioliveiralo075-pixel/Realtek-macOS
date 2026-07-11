@@ -7,11 +7,10 @@
 #include <sys/time.h>
 #include <sys/errno.h>
 
-// Se estiver sendo compilado por um arquivo C++, força o tratamento como C puro
+// Proteção essencial: só aplica o extern "C" se o arquivo atual for C++ (.cpp ou .hpp)
+#ifdef __cplusplus
 extern "C" {
-    #include "apple_linux_emulation.h"
-    #include "RTL8723BE_MacDriver.hpp" 
-}
+#endif
 
 // --- BYPASS DE SEGURANÇA XNU (BOUNDS SAFETY / FORTIFY SOURCE) ---
 // Ignora os wrappers estritos de tamanho do macOS para aceitar o código legado do Linux
@@ -433,5 +432,10 @@ static inline int _ieee80211_is_robust_mgmt_frame(const void *hdr) {
 static inline int ieee80211_has_protected(unsigned short fc) { 
     return (fc & 0x4000) ? 1 : 0; 
 }
+
+// Fecha o bloco extern "C" de forma segura se for C++
+#ifdef __cplusplus
+}
+#endif
 
 #endif // APPLE_LINUX_EMULATION_H
