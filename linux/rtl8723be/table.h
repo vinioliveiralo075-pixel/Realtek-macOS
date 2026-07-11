@@ -28,7 +28,7 @@
 #ifndef __RTL8723BE_TABLE__H_
 #define __RTL8723BE_TABLE__H_
 
-#include <linux/types.h>
+#include "apple_linux_emulation.h"
 extern u32 RTL8723BEPHY_REG_1TARRAYLEN;
 extern u32 RTL8723BEPHY_REG_1TARRAY[];
 extern u32 RTL8723BEPHY_REG_ARRAY_PGLEN;
