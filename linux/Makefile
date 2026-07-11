@@ -37,7 +37,7 @@ patch_paths:
 	@rm -f rtl8723ae
 	@ln -s rtl8723be rtl8723ae
 	@mkdir -p linux
-	@touch linux/module.h linux/ip.h linux/init.h linux/kernel.h linux/types.h linux/pci.h linux/netdevice.h linux/etherdevice.h
+	@touch linux/module.h linux/ip.h linux/init.h linux/kernel.h linux/types.h linux/pci.h linux/netdevice.h linux/etherdevice.h linux/vmalloc.h
 
 subdirs:
 	$(MAKE) -C rtl8723com CFLAGS="$(CFLAGS)" CC="$(CC)"
