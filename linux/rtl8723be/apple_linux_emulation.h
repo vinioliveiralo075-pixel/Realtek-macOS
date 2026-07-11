@@ -473,18 +473,20 @@ static inline int in_interrupt(void) {
 #define complete(x) (void)(x)
 
 // ============================================================================
-// EMULAÇÃO DO SUBSISTEMA WIRELESS (IEEE 802.11 / MAC80211 / NL80211) - PARTE 2
+// EMULAÇÃO DO SUBSISTEMA WIRELESS (IEEE 802.11 / MAC80211 / NL80211) - PARTE 3
 // ============================================================================
 
 #define NL80211_BAND_2GHZ 0
 #define NL80211_BAND_5GHZ 1
 
-#define IEEE80211_CHAN_NO_HT40MINUS    (1 << 0)
-#define IEEE80211_HT_CAP_DSSSCCK40     (1 << 2)
-#define IEEE80211_HT_CAP_MAX_AMSDU     (1 << 3)
-#define IEEE80211_HT_MAX_AMPDU_64K     4
-#define IEEE80211_HT_MPDU_DENSITY_16   6
-#define IEEE80211_HT_MCS_TX_DEFINED    1
+#define IEEE80211_CHAN_NO_HT40MINUS      (1 << 0)
+#define IEEE80211_HT_CAP_DSSSCCK40       (1 << 2)
+#define IEEE80211_HT_CAP_MAX_AMSDU       (1 << 3)
+#define IEEE80211_HT_MAX_AMPDU_64K       4
+#define IEEE80211_HT_MPDU_DENSITY_16     6
+#define IEEE80211_HT_MCS_TX_DEFINED      1
+
+#define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454 (1 << 0)
 
 struct ieee80211_channel {
     int center_freq;
@@ -500,12 +502,36 @@ struct ieee80211_rate {
     int hw_value;
 };
 
+// Como a struct ieee80211_mcs_cap antiga pode ter campos faltando, vamos garantir que ela tenha tudo:
+// Se o compilador reclamar de redefinição, apenas adicione os campos rx_highest e tx_params na que já existe na linha 199!
+struct _patch_ieee80211_mcs_cap {
+    unsigned int tx_params;
+    unsigned short rx_highest;
+};
+#define ieee80211_mcs_cap _patch_ieee80211_mcs_cap
+
 struct ieee80211_sta_ht_cap {
     bool ht_supported;
     unsigned int cap;
     unsigned int ampdu_factor;
     unsigned int ampdu_density;
-    struct ieee80211_mcs_cap mcs; // A struct mcs_cap original da linha 199 vai ser usada aqui!
+    struct ieee80211_mcs_cap mcs;
+};
+
+struct ieee80211_sta_vht_cap {
+    bool vht_supported;
+    unsigned int cap;
+};
+
+struct ieee80211_supported_band {
+    int band;
+    struct ieee80211_channel *channels;
+    int n_channels;
+    struct ieee80211_rate *bitrates;
+    int n_bitrates;
+    struct {
+        int dummy; // Apenas para preencher o .ht_cap = {0}
+    } ht_cap;
 };
 
 #endif // APPLE_LINUX_EMULATION_H
