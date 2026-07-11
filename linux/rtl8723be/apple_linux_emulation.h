@@ -470,9 +470,6 @@ static inline int in_interrupt(void) {
 #define __exit
 #define module_init(x)
 #define module_exit(x)
-
-// Emulação para funções de sincronização (completions) do Linux
-struct completion { int dummy; };
 #define complete(x) (void)(x)
 
 #endif // APPLE_LINUX_EMULATION_H
