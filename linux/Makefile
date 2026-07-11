@@ -1,10 +1,10 @@
 SDKPATH = $(shell xcrun --show-sdk-path)
 CC = clang
 
-CFLAGS = -mkernel -arch x86_64 -nostdinc -target x86_64-apple-macos12 -w \
+CFLAGS = -mkernel -arch x86_64 -nostdinc -target x86_64-apple-macos12 \
          -I$(SDKPATH)/System/Library/Frameworks/Kernel.framework/Headers \
          -I$(SDKPATH)/usr/include \
-         -I. -Irtl8723be -Irtl8723com -Ibtcoexist \
+         -I. -I.. -Irtl8723be -Irtl8723com -Ibtcoexist -I../rtl8723be -I../rtl8723com -I../btcoexist \
          -DKERNEL -DKERNEL_PRIVATE -fno-builtin \
          -DCONFIG_RTLWIFI_DEBUG -DBT_SUPPORT=1 -DCOEX_SUPPORT=1 \
          -include apple_linux_emulation.h
