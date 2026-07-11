@@ -472,4 +472,45 @@ static inline int in_interrupt(void) {
 #define module_exit(x)
 #define complete(x) (void)(x)
 
+// ============================================================================
+// EMULAÇÃO DO SUBSISTEMA WIRELESS (IEEE 802.11 / MAC80211 / NL80211)
+// ============================================================================
+
+#define NL80211_BAND_2GHZ 0
+#define NL80211_BAND_5GHZ 1
+
+#define IEEE80211_CHAN_NO_HT40MINUS    (1 << 0)
+#define IEEE80211_HT_CAP_SUP_WIDTH_20_40 (1 << 1)
+#define IEEE80211_HT_CAP_DSSSCCK40     (1 << 2)
+#define IEEE80211_HT_CAP_MAX_AMSDU     (1 << 3)
+#define IEEE80211_HT_MAX_AMPDU_64K     4
+#define IEEE80211_HT_MPDU_DENSITY_16   6
+#define IEEE80211_HT_MCS_TX_DEFINED    1
+
+struct ieee80211_channel {
+    int band;
+    int hw_value;
+    unsigned int flags;
+    int max_power;
+    // Adicione outros campos genéricos se o compilador reclamar de mais algum
+};
+
+struct ieee80211_rate {
+    unsigned int bitrate;
+    unsigned int flags;
+    int hw_value;
+};
+
+struct ieee80211_mcs_cap {
+    unsigned int tx_params;
+};
+
+struct ieee80211_sta_ht_cap {
+    bool ht_supported;
+    unsigned int cap;
+    unsigned int ampdu_factor;
+    unsigned int ampdu_density;
+    struct ieee80211_mcs_cap mcs;
+};
+
 #endif // APPLE_LINUX_EMULATION_H
