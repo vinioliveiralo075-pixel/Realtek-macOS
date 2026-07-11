@@ -487,6 +487,7 @@ static inline int in_interrupt(void) {
 #define IEEE80211_HT_MCS_TX_DEFINED    1
 
 struct ieee80211_channel {
+    int center_freq;
     int band;
     int hw_value;
     unsigned int flags;
