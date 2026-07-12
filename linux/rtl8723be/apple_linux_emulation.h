@@ -218,6 +218,9 @@ static inline int time_after(unsigned long a, unsigned long b) { return (long)(a
 #define WARN_ONCE(cond, fmt, ...)               do { (void)(cond); } while(0)
 #define WARN_ON(x)                              do { (void)(x); } while(0)
 
+typedef int spinlock_t;
+#define IEEE80211_QOS_CTL_TID_MASK 0x000f
+
 static inline int test_bit(int nr, const volatile unsigned long *addr) { return (*addr & (1UL << nr)) != 0; }
 static inline int atomic_inc_return(atomic_t *v) { return ++(v->counter); }
 static inline void atomic_set(atomic_t *v, int i) { v->counter = i; }
