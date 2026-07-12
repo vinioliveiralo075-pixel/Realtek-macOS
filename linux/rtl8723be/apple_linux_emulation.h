@@ -483,8 +483,31 @@ static inline int in_interrupt(void) { return 0; }
 #define complete(x) (void)(x)
 
 // --- 9. DEFINIÇÕES AGREGADAS WIPHY & VENDOR COMMANDS (CORREÇÃO DE DESIGNATED INITIALIZER) ---
-#define NL80211_BAND_2GHZ 0
-#define NL80211_BAND_5GHZ 1
+enum nl80211_iftype {
+    NL80211_IFTYPE_UNSPECIFIED,
+    NL80211_IFTYPE_ADHOC,
+    NL80211_IFTYPE_STATION,
+    NL80211_IFTYPE_AP,
+    NL80211_IFTYPE_AP_VLAN,
+    NL80211_IFTYPE_WDS,
+    NL80211_IFTYPE_MONITOR,
+    NL80211_IFTYPE_MESH_POINT,
+    NL80211_IFTYPE_P2P_CLIENT,
+    NL80211_IFTYPE_P2P_GO,
+    NL80211_IFTYPE_P2P_DEVICE,
+    NL80211_IFTYPE_OCB,
+    NL80211_IFTYPE_NAN,
+};
+
+enum nl80211_channel_type {
+    NL80211_CHAN_NO_HT,
+    NL80211_CHAN_HT20,
+    NL80211_CHAN_HT40MINUS,
+    NL80211_CHAN_HT40PLUS,
+};
+
+// Declaração fantasma da estrutura USB do Linux para evitar warnings de escopo
+struct urb; 
 
 #define IEEE80211_CHAN_NO_HT40MINUS      (1 << 0)
 #define IEEE80211_HT_CAP_DSSSCCK40       (1 << 2)
@@ -518,8 +541,8 @@ static inline int in_interrupt(void) { return 0; }
 #define WIPHY_FLAG_IBSS_RSN           (1 << 2)
 #define WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL (1 << 3)
 
-#define NL80211_IFTYPE_P2P_CLIENT     8
-#define NL80211_IFTYPE_P2P_GO         9
+#define NL80211_BAND_2GHZ 0
+#define NL80211_BAND_5GHZ 1
 
 enum ieee80211_hw_set_type {
     SIGNAL_DBM = 0, RX_INCLUDES_FCS, AMPDU_AGGREGATION, CONNECTION_MONITOR,
@@ -540,7 +563,7 @@ struct ieee80211_supported_band {
 };
 struct wireless_dev { int dummy; };
 
-// Estrutura Real e Agregada para o Clang aceitar a inicialização do base.c
+// Estrutura para o Clang aceitar a inicialização em bloco do base.c
 struct wiphy_vendor_command {
     unsigned int vendor_id;
     unsigned int subcmd;
