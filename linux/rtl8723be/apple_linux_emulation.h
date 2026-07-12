@@ -754,6 +754,26 @@ static inline u64 div64_u64(u64 dividend, u64 divisor) { return dividend / divis
 #define IEEE80211_FTYPE_MGMT   0x0000
 #define IEEE80211_STYPE_ACTION 0x00d0
 
+#define WLAN_CATEGORY_HT              7
+#define WLAN_HT_ACTION_SMPS           2
+#define WLAN_HT_SMPS_CONTROL_DISABLED 0
+#define WLAN_HT_SMPS_CONTROL_STATIC   1
+#define WARN_ON(x) (void)(x)
+
+enum ieee80211_smps_mode {
+    IEEE80211_SMPS_DISABLED = 0,
+    IEEE80211_SMPS_OFF,
+    IEEE80211_SMPS_STATIC,
+    IEEE80211_SMPS_DYNAMIC,
+    IEEE80211_SMPS_AUTOMATIC,
+    IEEE80211_SMPS_NUM_MODES
+};
+
+struct wiphy_vendor_command {
+    u32 vendor_id;
+    u32 subcmd;
+};
+
 struct ieee80211_mgmt {
     u16 frame_control;
     u8 da[ETH_ALEN];
@@ -764,7 +784,12 @@ struct ieee80211_mgmt {
             u8 variable[1];
         } beacon;
         struct {
+            u8 category;
             union {
+                struct {
+                    u8 action;
+                    u8 smps_control;
+                } ht_smps;
                 struct {
                     u16 capab;
                 } addba_req;
@@ -785,8 +810,9 @@ struct ieee80211_vif {
 };
 
 // 5. Suporte Completo a Listas Encadeadas do Linux (List Stubs)
+#undef list_for_each_entry_safe
 #define list_for_each_entry_safe(pos, n, head, member) \
-    for (pos = __typeof__(*pos)0, n = __typeof__(*pos)0; 0; )
+    for (pos = NULL; 0; )
 
 static inline void list_del(void *entry) {}
 static inline void list_del_init(void *entry) {}
