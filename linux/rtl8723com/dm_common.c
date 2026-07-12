@@ -27,6 +27,7 @@
 #include "dm_common.h"
 #include "../rtl8723ae/dm.h"
 #include <linux/module.h>
+#include "../rtl8723be/apple_linux_emulation.h"
 
 /* These routines are common to RTL8723AE and RTL8723bE */
 
