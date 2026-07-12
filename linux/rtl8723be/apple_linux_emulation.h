@@ -625,4 +625,28 @@ static inline struct ieee80211_tx_info *IEEE80211_SKB_CB(struct sk_buff *skb) {
 }
 #endif
 
+// =========================================================================
+// EMULAÇÃO DE ALOCAÇÃO DE MEMÓRIA DO KERNEL LINUX PARA MACOS (IOMalloc)
+// =========================================================================
+#define GFP_KERNEL 0
+
+// Função fictícia ou mapeada para o alocador do macOS kernel (IOMalloc/IOMallocZero)
+// Como o Xcode já traz mapeamentos básicos ou queremos apenas passar pelo Clang:
+#ifndef kzalloc
+  #define kzalloc(size, flags) ({ \
+      void *p = __builtin_alloca(size); \
+      if(p) __builtin_memset(p, 0, size); \
+      p; \
+  })
+#endif
+
+#ifndef kfree
+  #define kfree(ptr) do { } while(0)
+
+// =========================================================================
+// DESATIVAR INICIALIZADORES DE MÓDULO DO LINUX
+// =========================================================================
+#define module_init(x) void linux_init_##x(void) {}
+#define module_exit(x) void linux_exit_##x(void) {}
+
 #endif // APPLE_LINUX_EMULATION_H
