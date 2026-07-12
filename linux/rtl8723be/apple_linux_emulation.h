@@ -730,7 +730,6 @@ static inline struct ieee80211_rate *ieee80211_get_tx_rate(void *hw, void *info)
 // 2. Utilitários de Tempo (Jiffies e Clocks)
 static inline int time_before(unsigned long a, unsigned long b) { return (long)(b - a) > 0; }
 static inline int time_after(unsigned long a, unsigned long b) { return (long)(a - b) > 0; }
-static inline unsigned long msecs_to_jiffies(const unsigned int m) { return (m * HZ) / 1000; }
 static inline void usleep_range(unsigned long min, unsigned long max) {}
 static inline u64 div64_u64(u64 dividend, u64 divisor) { return dividend / divisor; }
 
