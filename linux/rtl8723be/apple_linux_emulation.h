@@ -85,22 +85,22 @@ extern "C" {
 #define local_irq_restore(flags) do { (void)(flags); } while(0)
 
 // --- 3. TODOS OS TIPOS BÁSICOS DO KERNEL ---
-typedef unsigned char       u8;
-typedef unsigned short      u16;
-typedef unsigned int        u32;
-typedef unsigned long long  u64;
+typedef unsigned char        u8;
+typedef unsigned short       u16;
+typedef unsigned int         u32;
+typedef unsigned long long   u64;
 
-typedef signed char         s8;
-typedef signed short        s16;
-typedef signed int          s32;
-typedef signed long long    s64;
+typedef signed char          s8;
+typedef signed short         s16;
+typedef signed int           s32;
+typedef signed long long     s64;
 
-typedef unsigned short      __le16;
-typedef unsigned int        __le32;
-typedef unsigned long long  __le64;
+typedef unsigned short       __le16;
+typedef unsigned int         __le32;
+typedef unsigned long long   __le64;
 
-typedef long long           time64_t;
-typedef unsigned long       dma_addr_t;
+typedef long long            time64_t;
+typedef unsigned long        dma_addr_t;
 
 typedef struct { volatile int counter; } atomic_t;
 typedef struct { int dummy; } spinlock_t;
@@ -197,7 +197,7 @@ struct ieee80211_hw {
     size_t sta_data_size;
     struct ieee80211_hw_conf conf;
     const char *rate_control_algorithm;
-    u32 max_rx_aggregation_subframes; // <-- Injetado bem aqui!
+    u32 max_rx_aggregation_subframes;
 };
 
 // Estrutura de status de recepção de pacotes
@@ -317,6 +317,10 @@ static inline int is_broadcast_ether_addr(const unsigned char *addr) {
 #define pr_err(fmt, ...)   printf(fmt, ##__VA_ARGS__)
 
 #define list_for_each_entry(pos, head, member) \
+    for (pos = NULL; pos != NULL; )
+
+#undef list_for_each_entry_safe
+#define list_for_each_entry_safe(pos, n, head, member) \
     for (pos = NULL; pos != NULL; )
 
 static inline u8 *ieee80211_get_qos_ctl(const void *hdr) { static u8 dummy[2] = {0}; return dummy; }
@@ -465,8 +469,6 @@ static inline int ieee80211_is_data_qos(unsigned short fc) {
     return (fc & 0x000c) == 0x0008 && (fc & 0x0080);
 }
 
-// --- ADICIONE AS QUE O BASE.C PEDIU LOGO ABAIXO ---
-
 static inline int ieee80211_is_data(unsigned short fc) {
     return ((fc & 0x000c) == 0x0008);
 }
@@ -482,6 +484,20 @@ static inline int ieee80211_is_probe_resp(unsigned short fc) {
 static inline int ieee80211_is_action(unsigned short fc) {
     return ((fc & 0x00fc) == 0x00d0);
 }
+
+static inline u8 ieee80211_get_hdrlen_from_skb(struct sk_buff *skb) {
+    return 24;
+}
+static inline void ieee80211_rx_irqsafe(void *hw, struct sk_buff *skb) {
+    (void)hw; (void)skb;
+}
+static inline void ieee80211_start_tx_ba_cb_irqsafe(void *vif, const u8 *addr, u8 tid) {
+    (void)vif; (void)addr; (void)tid;
+}
+static inline void ieee80211_stop_tx_ba_cb_irqsafe(void *vif, const u8 *addr, u8 tid) {
+    (void)vif; (void)addr; (void)tid;
+}
+
 // Extração de endereços de Origem (SA) e Destino (DA) nos frames de Wi-Fi
 static inline unsigned char *ieee80211_get_SA(void *hdr) {
     return ((unsigned char *)hdr) + 10;
@@ -502,6 +518,29 @@ static inline int _ieee80211_is_robust_mgmt_frame(const void *hdr) {
 }
 static inline int ieee80211_has_protected(unsigned short fc) { 
     return (fc & 0x4000) ? 1 : 0; 
+}
+
+// Bloco de controle RX do IEEE80211 no skb
+#define IEEE80211_SKB_RXCB(skb) ((void*)((skb)->data))
+
+// Substitutos para contadores atômicos simples
+static inline int atomic_inc_return(atomic_t *v) {
+    return ++(v->counter);
+}
+
+// Conversão de ponteiro big endian para CPU int
+typedef unsigned short __be16;
+typedef unsigned int   __be32;
+
+static inline unsigned short be16_to_cpu(__be16 val) {
+    return (unsigned short)(((val & 0xFF) << 8) | ((val >> 8) & 0xFF));
+}
+static inline unsigned int be32_to_cpu(__be32 val) {
+    return ((val & 0xFF) << 24) | ((val & 0xFF00) << 8) | 
+           ((val >> 8) & 0xFF00) | ((val >> 24) & 0xFF);
+}
+static inline unsigned short be16_to_cpup(const __be16 *p) {
+    return be16_to_cpu(*p);
 }
 
 // Fecha o bloco extern "C" de forma segura se for C++
@@ -598,18 +637,6 @@ enum ieee80211_hw_set_type {
     SUPPORTS_DYNAMIC_PS
 };
 
-// Tipos Big Endian e funções de conversão inline
-typedef unsigned short __be16;
-typedef unsigned int   __be32;
-
-static inline unsigned short be16_to_cpu(__be16 val) {
-    return (unsigned short)(((val & 0xFF) << 8) | ((val >> 8) & 0xFF));
-}
-static inline unsigned int be32_to_cpu(__be32 val) {
-    return ((val & 0xFF) << 24) | ((val & 0xFF00) << 8) | 
-           ((val >> 8) & 0xFF00) | ((val >> 24) & 0xFF);
-}
-
 // Estruturas de canais e taxas
 struct ieee80211_channel {
     int center_freq;
@@ -632,7 +659,7 @@ struct ieee80211_supported_band {
     struct ieee80211_rate *bitrates;
     int n_bitrates;
     struct ieee80211_ht_cap ht_cap;   
-    struct ieee80211_vht_cap vht_cap; 
+    struct ieee80211_vht_cap vht_cap;  
 };
 
 struct wireless_dev {
@@ -771,10 +798,6 @@ static inline u64 div64_u64(u64 dividend, u64 divisor) { return dividend / divis
 // 4. ESTRUTURAS CORRIGIDAS PARA CASAMENTO DE SUB-MEMBROS E RETRANSMISSÃO
 // ============================================================================
 
-#ifndef ETH_ALEN
-#define ETH_ALEN 6
-#endif
-
 #define IEEE80211_FTYPE_MGMT   0x0000
 #define IEEE80211_STYPE_ACTION 0x00d0
 
@@ -783,8 +806,6 @@ static inline u64 div64_u64(u64 dividend, u64 divisor) { return dividend / divis
 #define WLAN_HT_SMPS_CONTROL_DISABLED 0
 #define WLAN_HT_SMPS_CONTROL_STATIC   1
 #define WARN_ON(x) (void)(x)
-
-// NOTA: O enum ieee80211_smps_mode e a struct wiphy_vendor_command foram removidos daqui pois já existem no início do arquivo.
 
 struct ieee80211_mgmt {
     u16 frame_control;
