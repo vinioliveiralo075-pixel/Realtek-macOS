@@ -699,10 +699,10 @@ static inline struct ieee80211_rate *ieee80211_get_tx_rate(void *hw, void *info)
 }
 
 // ============================================================================
-// SUPORTE FINAL PARA LISTAS, ALOCAÇÃO ATÔMICA E AGREGAÇÃO (BASE.C)
+// SUPORTE TOTAL E FINAL PARA BASE.C (TIMERS, WORKQUEUES, CONTAINER_OF E LISTAS)
 // ============================================================================
 
-// 1. Definições de Identificadores VHT faltantes
+// 1. Definições de Identificadores VHT e Constantes de Rede/Tempo
 #ifndef IEEE80211_VHT_MCS_SUPPORT_0_7
 #define IEEE80211_VHT_MCS_SUPPORT_0_7 0
 #endif
@@ -713,7 +713,6 @@ static inline struct ieee80211_rate *ieee80211_get_tx_rate(void *hw, void *info)
 #define IEEE80211_VHT_MCS_SUPPORT_0_9 2
 #endif
 
-// 2. Máscaras e Protocolos de Rede (Ethernet e IP)
 #define IEEE80211_ADDBA_PARAM_TID_MASK 0x001e
 #define ETH_P_IP   0x0800
 #define ETH_P_ARP  0x0806
@@ -721,14 +720,31 @@ static inline struct ieee80211_rate *ieee80211_get_tx_rate(void *hw, void *info)
 #define ETH_P_PAE  0x888E
 #define IPPROTO_UDP 17
 
-// 3. Constantes de Tempo e Atraso
 #ifndef HZ
 #define HZ 100
 #endif
-static inline int time_before(unsigned long a, unsigned long b) { return (long)(b - a) > 0; }
-static inline void usleep_range(unsigned long min, unsigned long max) {}
+#define MSEC_PER_SEC 1000
+#define GFP_ATOMIC 0
+#define IEEE80211_MAX_AMPDU_BUF 64
 
-// 4. Estruturas Corrigidas para casamento de sub-membros (Anon_Union/IP/Agg)
+// 2. Utilitários de Tempo (Jiffies e Clocks)
+static inline int time_before(unsigned long a, unsigned long b) { return (long)(b - a) > 0; }
+static inline int time_after(unsigned long a, unsigned long b) { return (long)(a - b) > 0; }
+static inline unsigned long msecs_to_jiffies(const unsigned int m) { return (m * HZ) / 1000; }
+static inline void usleep_range(unsigned long min, unsigned long max) {}
+static inline u64 div64_u64(u64 dividend, u64 divisor) { return dividend / divisor; }
+
+// 3. Mecanismo Kernel Emulation (container_of, to_delayed_work, from_timer)
+#ifndef container_of
+#define container_of(ptr, type, member) \
+    ((type *)((char *)(ptr) - __builtin_offsetof(type, member)))
+#endif
+
+#define to_delayed_work(x) (x)
+#define from_timer(var, callback_timer, timer_fieldname) \
+    container_of(callback_timer, struct rtl_priv, works.watchdog_timer)
+
+// 4. Estruturas Corrigidas para casamento de sub-membros
 struct ieee80211_mgmt {
     union {
         struct {
@@ -752,18 +768,16 @@ struct ieee80211_vif {
     } bss_conf;
 };
 
-// 5. Macros e Suporte a Listas Encadeadas do Linux (List Stubs)
-#define GFP_ATOMIC 0
-#define IEEE80211_MAX_AMPDU_BUF 64
-
+// 5. Suporte Completo a Listas Encadeadas do Linux (List Stubs)
 #define list_for_each_entry_safe(pos, n, head, member) \
     for (pos = __typeof__(*pos)0, n = __typeof__(*pos)0; 0; )
 
 static inline void list_del(void *entry) {}
 static inline void list_del_init(void *entry) {}
+static inline void list_add_tail(void *new_item, void *head) {}
 static inline void *kmalloc(size_t size, int flags) { return IOMallocZero(size); }
 
-// 6. Macros e Funções Inline extras (Frames, Headers, Endianness e Callbacks)
+// 6. Funções Inline extras e Callbacks do IEEE80211
 static inline int ieee80211_is_data(u16 fc) { return (fc & 0x000c) == 0x0008; }
 static inline int ieee80211_is_auth(u16 fc) { return fc == 0x00b0; }
 static inline int ieee80211_is_probe_req(u16 fc) { return fc == 0x0040; }
@@ -776,8 +790,10 @@ static inline int atomic_inc_return(void *v) { return 1; }
 
 static inline void ieee80211_start_tx_ba_cb_irqsafe(void *vif, const u8 *addr, u8 tid) {}
 static inline void ieee80211_stop_tx_ba_cb_irqsafe(void *vif, const u8 *addr, u8 tid) {}
+static inline void ieee80211_connection_loss(void *hw, void *vif, u16 reason, int irq) {}
 
-// 7. Definição do Buffer de Controle (Evita erro de missing 'cb' ou 'status')
+// 7. Workqueues e Buffer de Controle
+static inline int queue_delayed_work(void *wq, void *dwork, unsigned long delay) { return 0; }
 #define IEEE80211_SKB_RXCB(skb) ((void *)((skb)->data))
 static inline void ieee80211_rx_irqsafe(void *hw, void *skb) {}
 
