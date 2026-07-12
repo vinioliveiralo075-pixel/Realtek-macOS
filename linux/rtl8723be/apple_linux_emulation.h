@@ -113,7 +113,14 @@ typedef struct { int dummy; } spinlock_t;
 
 // --- 5. PRÉ-DECLARAÇÕES E ENUMS DO SUBSISTEMA DE REDE ---
 enum nl80211_channel_type { NL80211_CONN_LESS_PRIMARY };
-enum ieee80211_smps_mode { IEEE80211_SMPS_DISABLED };
+enum ieee80211_smps_mode {
+    IEEE80211_SMPS_DISABLED = 0,
+    IEEE80211_SMPS_OFF,
+    IEEE80211_SMPS_STATIC,
+    IEEE80211_SMPS_DYNAMIC,
+    IEEE80211_SMPS_AUTOMATIC,
+    IEEE80211_SMPS_NUM_MODES
+};
 struct seq_file;
 struct pci_device_id;
 struct urb;
@@ -760,19 +767,7 @@ static inline u64 div64_u64(u64 dividend, u64 divisor) { return dividend / divis
 #define WLAN_HT_SMPS_CONTROL_STATIC   1
 #define WARN_ON(x) (void)(x)
 
-enum ieee80211_smps_mode {
-    IEEE80211_SMPS_DISABLED = 0,
-    IEEE80211_SMPS_OFF,
-    IEEE80211_SMPS_STATIC,
-    IEEE80211_SMPS_DYNAMIC,
-    IEEE80211_SMPS_AUTOMATIC,
-    IEEE80211_SMPS_NUM_MODES
-};
-
-struct wiphy_vendor_command {
-    u32 vendor_id;
-    u32 subcmd;
-};
+// NOTA: O enum ieee80211_smps_mode e a struct wiphy_vendor_command foram removidos daqui pois já existem no início do arquivo.
 
 struct ieee80211_mgmt {
     u16 frame_control;
@@ -808,43 +803,5 @@ struct ieee80211_vif {
         int use_short_slot;
     } bss_conf;
 };
-
-// 5. Suporte Completo a Listas Encadeadas do Linux (List Stubs)
-#undef list_for_each_entry_safe
-#define list_for_each_entry_safe(pos, n, head, member) \
-    for (pos = NULL; 0; )
-
-static inline void list_del(void *entry) {}
-static inline void list_del_init(void *entry) {}
-static inline void list_add_tail(void *new_item, void *head) {}
-static inline void *kmalloc(size_t size, int flags) { return IOMallocZero(size); }
-
-// 6. Funções Inline extras e Callbacks do IEEE80211
-static inline int ieee80211_is_data(u16 fc) { return (fc & 0x000c) == 0x0008; }
-static inline int ieee80211_is_auth(u16 fc) { return fc == 0x00b0; }
-static inline int ieee80211_is_probe_req(u16 fc) { return fc == 0x0040; }
-static inline int ieee80211_is_probe_resp(u16 fc) { return fc == 0x0050; }
-static inline int ieee80211_is_action(u16 fc) { return fc == 0x00d0; }
-static inline u8 ieee80211_get_hdrlen_from_skb(void *skb) { return 24; }
-
-static inline u16 be16_to_cpup(const __be16 *p) { return (u16)ntohs(*p); }
-static inline int atomic_inc_return(void *v) { return 1; }
-
-#define ieee80211_connection_loss(...) do { } while(0)
-static inline void ieee80211_start_tx_ba_cb_irqsafe(void *vif, const u8 *addr, u8 tid) {}
-static inline void ieee80211_stop_tx_ba_cb_irqsafe(void *vif, const u8 *addr, u8 tid) {}
-
-// 7. Workqueues e Buffer de Controle
-static inline int queue_delayed_work(void *wq, void *dwork, unsigned long delay) { return 0; }
-#define IEEE80211_SKB_RXCB(skb) ((void *)((skb)->data))
-static inline void ieee80211_rx_irqsafe(void *hw, void *skb) {}
-
-// Suporte extra para listas
-#define list_first_entry_or_null(ptr, type, member) \
-    ({ void *__src = (ptr); __src ? (type *)0 : (type *)0; })
-
-// Utilitários de sk_buff ausentes
-static inline void skb_reserve(struct sk_buff *skb, int len) {}
-static inline void *skb_put_zero(struct sk_buff *skb, unsigned int len) { return (void *)skb->data; }
 
 #endif // APPLE_LINUX_EMULATION_H
