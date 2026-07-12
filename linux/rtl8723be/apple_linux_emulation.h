@@ -150,7 +150,12 @@ struct tasklet_struct { int dummy; };
 struct delayed_work { int dummy; };
 struct work_struct { int dummy; };
 struct completion { int dummy; };
-struct ieee80211_tx_queue_params { int dummy; };
+struct ieee80211_tx_queue_params {
+    u16 txop;
+    u16 cw_max;
+    u16 cw_min;
+    u16 aifs;
+};
 
 struct ieee80211_hdr { 
     unsigned short frame_control;
@@ -234,6 +239,7 @@ struct ieee80211_sta_vht_cap {
 
 // Estrutura da Estação (Station) unificada
 struct ieee80211_sta {
+    u8 addr[6];
     struct ieee80211_sta_ht_cap ht_cap;
     struct ieee80211_sta_vht_cap vht_cap;
     void *drv_priv;
@@ -714,9 +720,10 @@ static inline struct ieee80211_rate *ieee80211_get_tx_rate(void *hw, void *info)
 #define ETH_P_PAE  0x888E
 #define IPPROTO_UDP 17
 
-// 3. Constantes de Tempo e Atraso (Jiffies / HZ)
+// 3. Constantes de Tempo e Atraso
+#ifndef HZ
 #define HZ 100
-extern unsigned long jiffies;
+#endif
 static inline int time_before(unsigned long a, unsigned long b) { return (long)(b - a) > 0; }
 static inline void usleep_range(unsigned long min, unsigned long max) {}
 
@@ -745,18 +752,6 @@ struct ieee80211_vif {
     } bss_conf;
 };
 
-struct ieee80211_tx_queue_params {
-    u16 txop;
-    u16 cw_max;
-    u16 cw_min;
-    u16 aifs;
-};
-
-struct ieee80211_sta {
-    u8 addr[6];
-    u16 aid;
-};
-
 // 6. Macros e Funções Inline extras (Frames, Headers, Endianness e Callbacks)
 static inline int ieee80211_is_data(u16 fc) { return (fc & 0x000c) == 0x0008; }
 static inline int ieee80211_is_auth(u16 fc) { return fc == 0x00b0; }
@@ -766,7 +761,6 @@ static inline u8 ieee80211_get_hdrlen_from_skb(void *skb) { return 24; }
 
 static inline u16 be16_to_cpup(const __be16 *p) { return (u16)ntohs(*p); }
 static inline int atomic_inc_return(void *v) { return 1; }
-static inline int fls(int x) { return x ? 32 - __builtin_clz(x) : 0; }
 
 static inline void ieee80211_start_tx_ba_cb_irqsafe(void *vif, const u8 *addr, u8 tid) {}
 static inline void ieee80211_stop_tx_ba_cb_irqsafe(void *vif, const u8 *addr, u8 tid) {}
