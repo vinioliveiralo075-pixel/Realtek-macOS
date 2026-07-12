@@ -679,12 +679,13 @@ static inline int ieee80211_rate_get_vht_mcs(const struct ieee80211_tx_rate *r) 
     return 0;
 }
 
-static inline u32 ieee80211_get_tx_rate(void *hw, void *info) {
-    return 0;
+static inline struct ieee80211_rate *ieee80211_get_tx_rate(void *hw, void *info) {
+    static struct ieee80211_rate dummy_rate = {0};
+    return &dummy_rate;
 }
 
 // ============================================================================
-// SUPORTE AVANÇADO DE FRAME E CONTROLE DE TAXAS (BASE.C)
+// SUPORTE AVANÇADO DE FRAME E COMPATIBILIDADE DE TAXAS (BASE.C)
 // ============================================================================
 
 // 1. Definições de Identificadores VHT faltantes
@@ -701,11 +702,7 @@ static inline u32 ieee80211_get_tx_rate(void *hw, void *info) {
 // 2. Máscaras adicionais para controle de taxa
 #define IEEE80211_ADDBA_PARAM_TID_MASK 0x001e
 
-// 3. Estruturas extras para evitar "incomplete definition" no base.c
-struct ieee80211_tx_rate_control {
-    u8 idx;
-};
-
+// 3. Estrutura de gerenciamento para evitar "incomplete definition" no base.c
 struct ieee80211_mgmt {
     struct {
         struct {
@@ -727,14 +724,5 @@ static inline int ieee80211_is_action(u16 fc) { return fc == 0x00d0; }
 // 5. Stubs de recepção e controle de buffer (skb)
 #define IEEE80211_SKB_RXCB(skb) ((void *)((skb)->cb))
 static inline void ieee80211_rx_irqsafe(void *hw, void *skb) {}
-
-// 6. Correção do retorno do ponteiro de taxa
-struct ieee80211_rate {
-    u8 hw_value;
-};
-static inline struct ieee80211_rate *ieee80211_get_tx_rate(void *hw, void *info) {
-    static struct ieee80211_rate dummy_rate = {0};
-    return &dummy_rate;
-}
 
 #endif // APPLE_LINUX_EMULATION_H
