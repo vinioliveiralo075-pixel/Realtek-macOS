@@ -465,6 +465,23 @@ static inline int ieee80211_is_data_qos(unsigned short fc) {
     return (fc & 0x000c) == 0x0008 && (fc & 0x0080);
 }
 
+// --- ADICIONE AS QUE O BASE.C PEDIU LOGO ABAIXO ---
+
+static inline int ieee80211_is_data(unsigned short fc) {
+    return ((fc & 0x000c) == 0x0008);
+}
+static inline int ieee80211_is_auth(unsigned short fc) {
+    return ((fc & 0x00fc) == 0x00b0);
+}
+static inline int ieee80211_is_probe_req(unsigned short fc) {
+    return ((fc & 0x00fc) == 0x0040);
+}
+static inline int ieee80211_is_probe_resp(unsigned short fc) {
+    return ((fc & 0x00fc) == 0x0050);
+}
+static inline int ieee80211_is_action(unsigned short fc) {
+    return ((fc & 0x00fc) == 0x00d0);
+}
 // Extração de endereços de Origem (SA) e Destino (DA) nos frames de Wi-Fi
 static inline unsigned char *ieee80211_get_SA(void *hdr) {
     return ((unsigned char *)hdr) + 10;
