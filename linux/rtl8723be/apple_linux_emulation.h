@@ -807,7 +807,6 @@ static inline int atomic_inc_return(void *v) { return 1; }
 #define ieee80211_connection_loss(...) do { } while(0)
 static inline void ieee80211_start_tx_ba_cb_irqsafe(void *vif, const u8 *addr, u8 tid) {}
 static inline void ieee80211_stop_tx_ba_cb_irqsafe(void *vif, const u8 *addr, u8 tid) {}
-static inline void ieee80211_connection_loss(void *hw, void *vif, u16 reason, int irq) {}
 
 // 7. Workqueues e Buffer de Controle
 static inline int queue_delayed_work(void *wq, void *dwork, unsigned long delay) { return 0; }
@@ -821,7 +820,5 @@ static inline void ieee80211_rx_irqsafe(void *hw, void *skb) {}
 // Utilitários de sk_buff ausentes
 static inline void skb_reserve(struct sk_buff *skb, int len) {}
 static inline void *skb_put_zero(struct sk_buff *skb, unsigned int len) { return (void *)skb->data; }
-static inline u16 cpu_to_le16(u16 val) { return val; }
-static inline struct sk_buff *dev_alloc_skb(unsigned int length) { return (struct sk_buff *)0; }
 
 #endif // APPLE_LINUX_EMULATION_H
