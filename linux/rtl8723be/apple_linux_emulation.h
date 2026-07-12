@@ -684,4 +684,53 @@ struct ieee80211_mgmt {
 struct iphdr { u8 ihl:4, version:4; u8 protocol; };
 struct ieee80211_vif { struct { int use_short_slot; } bss_conf; };
 
+// =========================================================================
+// CORREÇÕES PARA BASE.C (Subsistema Wireless, SKB e SMPS)
+// =========================================================================
+
+// 1. Correção do wiphy_vendor_command e ARRAY_SIZE em tipos incompletos
+struct wiphy_vendor_command {
+    struct {
+        u32 vendor_id;
+        u32 subcmd;
+    } info;
+    int (*doit)(struct wiphy *wiphy, struct wireless_dev *wdev, const void *data, int len);
+};
+
+// 2. Funções de manipulação de Buffer de Rede (sk_buff) que faltavam
+static inline void skb_reserve(struct sk_buff *skb, int len) { }
+static inline void *skb_put_zero(struct sk_buff *skb, unsigned int len) {
+    if (!skb) return NULL;
+    return skb->data; 
+}
+
+// 3. Enums e Macros do IEEE 802.11 SMPS (Spatial Multiplexing Power Save)
+enum ieee80211_smps_mode {
+    IEEE80211_SMPS_STATIC = 0,
+    IEEE80211_SMPS_DYNAMIC,
+    IEEE80211_SMPS_AUTOMATIC,
+    IEEE80211_SMPS_OFF,
+    IEEE80211_SMPS_NUM_MODES
+};
+
+#define WLAN_HT_SMPS_CONTROL_STATIC    0
+#define WLAN_HT_SMPS_CONTROL_DYNAMIC   1
+
+// 4. Macro de Controle do IEEE80211 e manipulação de Bits
+struct ieee80211_tx_info {
+    u8 flags;
+    int band; // Adicionado para corrigir o erro 'no member named band'
+};
+
+// Retorna um ponteiro simulado para não quebrar a atribuição em base.c
+static inline struct ieee80211_tx_info *IEEE80211_SKB_CB(struct sk_buff *skb) {
+    static struct ieee80211_tx_info mock_info;
+    return &mock_info;
+}
+
+// Emulação do test_bit para as flags de status do driver
+static inline int test_bit(int nr, const volatile unsigned long *addr) {
+    return (*addr & (1UL << nr)) != 0;
+}
+
 #endif // APPLE_LINUX_EMULATION_H
