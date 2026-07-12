@@ -16,7 +16,7 @@ extern "C" {
 // 1. MACROS DE VERSIONAMENTO DO KERNEL LINUX & ATRIBUTOS COMPILADOR
 // =========================================================================
 #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
-// Forçando uma versão estável clássica do Linux (ex: 4.19.0) para satisfazer os #if de wifi.h
+// Forçando uma versão estável clássica do Linux para satisfazer os #if de wifi.h
 #define LINUX_VERSION_CODE KERNEL_VERSION(4, 19, 0)
 
 // Correção dos erros de __printf(x, y) que quebram o debug.h
@@ -84,7 +84,6 @@ typedef unsigned long        kernel_ulong_t;
 typedef unsigned int         gfp_t;
 
 typedef struct { volatile int counter; } atomic_t;
-typedef struct { int dummy; } spinlock_t;
 
 #ifndef bool
   typedef int bool;
@@ -93,7 +92,71 @@ typedef struct { int dummy; } spinlock_t;
 #endif
 
 // =========================================================================
-// 4. OPERAÇÕES DE I/O (MMIO - MEMORY MAPPED I/O)
+// 4. CORREÇÃO DE INCOMPLETE TYPES (MOCKS COMPLETOS DE REQUISITOS DO WIFI.H)
+// =========================================================================
+
+// Correção do erro: 'struct list_head' incomplete type
+struct list_head {
+    struct list_head *next, *prev;
+};
+
+// Correção do erro: 'struct mutex' incomplete type
+struct mutex {
+    void *owner;
+    int locked;
+};
+
+// Correção do erro: 'struct completion' incomplete type
+struct completion {
+    unsigned int done;
+};
+
+// Correção do erro: 'struct tasklet_struct' incomplete type
+struct tasklet_struct {
+    struct tasklet_struct *next;
+    unsigned long state;
+    atomic_t count;
+    void (*func)(unsigned long);
+    unsigned long data;
+};
+
+// Correção do erro: 'struct ieee80211_tx_queue_params' incomplete type
+struct ieee80211_tx_queue_params {
+    int queue_id;
+    int aifs;
+    int cw_min;
+    int cw_max;
+    int txop_limit;
+};
+
+// Constantes de Limite de Filas de Transmissão (Padrão 802.11 EDCA)
+#ifndef RTL_MAC80211_NUM_QUEUE
+  #define RTL_MAC80211_NUM_QUEUE 4
+#endif
+
+// Constantes de Bandas NL80211 exigidas
+#ifndef NUM_NL80211_BANDS
+  #define NUM_NL80211_BANDS 2
+#endif
+
+// Evitando avisos de visibilidade adicionando definições básicas para structs de frames
+struct ieee80211_hdr {
+    u16 frame_control;
+    u16 duration_id;
+    u8 addr1[6];
+    u8 addr2[6];
+    u8 addr3[6];
+    u16 seq_ctrl;
+} __packed;
+
+struct ieee80211_rx_status {
+    u16 flags;
+    s8 signal;
+    u8 rate_idx;
+};
+
+// =========================================================================
+// 5. OPERAÇÕES DE I/O (MMIO - MEMORY MAPPED I/O)
 // =========================================================================
 #define readb(addr)        (*(volatile u8 *)(addr))
 #define readw(addr)        (*(volatile u16 *)(addr))
@@ -103,7 +166,7 @@ typedef struct { int dummy; } spinlock_t;
 #define writel(val, addr)  (*(volatile u32 *)(addr) = (val))
 
 // =========================================================================
-// 5. TIMING, JIFFIES E RETARDOS (CORREÇÃO DE PRECISSÃO 64-to-32)
+// 6. TIMING, JIFFIES E RETARDOS (CORREÇÃO DE PRECISÃO 64-to-32)
 // =========================================================================
 #ifndef HZ
   #define HZ 100
@@ -139,7 +202,7 @@ static inline int time_after(unsigned long a, unsigned long b) { return (long)(a
 #define complete(x)                             ((void)(x))
 
 // =========================================================================
-// 6. LOCKS, EXCLUSÃO MÚTUA E ATOMICIDADE
+// 7. LOCKS, EXCLUSÃO MÚTUA E ATOMICIDADE
 // =========================================================================
 #define spin_lock(lock)                         ((void)0)
 #define spin_unlock(lock)                       ((void)0)
@@ -161,7 +224,7 @@ static inline void atomic_set(atomic_t *v, int i) { v->counter = i; }
 static inline int atomic_read(const atomic_t *v) { return v->counter; }
 
 // =========================================================================
-// 7. SUBSISTEMA DE CAPTURA DE LOGS (PRINTK)
+// 8. SUBSISTEMA DE CAPTURA DE LOGS (PRINTK)
 // =========================================================================
 #define printk printf
 #define pr_info(fmt, ...)  printf(fmt, ##__VA_ARGS__)
@@ -174,7 +237,7 @@ struct seq_file { int dummy; };
 #define seq_printf(m, fmt, ...) ((void)0)
 
 // =========================================================================
-// 8. REDE E TRATAMENTO DE ENDEREÇOS MAC
+// 9. REDE E TRATAMENTO DE ENDEREÇOS MAC
 // =========================================================================
 #define ETH_ALEN 6
 #define ETH_P_IP   0x0800
@@ -193,7 +256,7 @@ static inline int is_broadcast_ether_addr(const unsigned char *addr) {
 static inline bool is_valid_ether_addr(const unsigned char *addr) { (void)addr; return true; }
 
 // =========================================================================
-// 9. EMULAÇÃO COMPLETA DE SK_BUFF (PACOTES LINUX)
+// 10. EMULAÇÃO COMPLETA DE SK_BUFF (PACOTES LINUX)
 // =========================================================================
 struct sk_buff { 
     void *data; 
@@ -229,7 +292,7 @@ static inline void *skb_push(struct sk_buff *skb, unsigned int len) {
 struct iphdr { u8 ihl:4, version:4; u8 protocol; };
 
 // =========================================================================
-// 10. WORKQUEUES, TIMERS E AGENDAMENTOS
+// 11. WORKQUEUES, TIMERS E AGENDAMENTOS
 // =========================================================================
 struct timer_list { int dummy; };
 struct delayed_work { int dummy; };
@@ -255,7 +318,7 @@ static inline void destroy_workqueue(void *wq) {}
 static inline int in_interrupt(void) { return 0; }
 
 // =========================================================================
-// 11. SUBSISTEMA PCI E GERENCIAMENTO DE MEMÓRIA (MOCK)
+// 12. SUBSISTEMA PCI E GERENCIAMENTO DE MEMÓRIA (MOCK)
 // =========================================================================
 struct pci_device_id {
     unsigned int vendor, device;
@@ -306,7 +369,7 @@ struct pci_driver {
 };
 
 // =========================================================================
-// 12. OPERAÇÕES DE ENDIANNESS (CONVERSÕES DE BYTE)
+// 13. OPERAÇÕES DE ENDIANNESS (CONVERSÕES DE BYTE)
 // =========================================================================
 #ifndef cpu_to_le32
   #define cpu_to_le32(x) ((unsigned int)(x))
@@ -329,7 +392,7 @@ static inline unsigned short be16_to_cpup(const __be16 *p) { return be16_to_cpu(
 static inline u64 div64_u64(u64 dividend, u64 divisor) { return dividend / divisor; }
 
 // =========================================================================
-// 13. CONSTANTES E MÁSCARAS DO PADRÃO IEEE 802.11
+// 14. CONSTANTES E MÁSCARAS DO PADRÃO IEEE 802.11
 // =========================================================================
 #define IEEE80211_FCTL_FTYPE       0x000c
 #define IEEE80211_FCTL_STYPE       0x00f0
@@ -426,14 +489,8 @@ enum ieee80211_hw_set_type {
 };
 
 // =========================================================================
-// 14. ESTRUTURAS ROBUSTAS DO SUBSISTEMA MAC80211 EXIGIDAS PELO DRIVER
+// 15. CORREÇÃO CRÍTICA DO ERRO DE DEFINIÇÃO DA STRUCT IEEE80211_HW
 // =========================================================================
-struct urb; 
-struct firmware;
-struct regulatory_request;
-struct ieee80211_hw;
-struct ieee80211_sta;
-
 struct ieee80211_channel { int center_freq; int band; int hw_value; unsigned int flags; int max_power; };
 struct ieee80211_rate { unsigned int bitrate; unsigned int flags; int hw_value; };
 struct ieee80211_ht_cap { int dummy; };
@@ -443,6 +500,12 @@ struct ieee80211_supported_band {
     int band; struct ieee80211_channel *channels; int n_channels;
     struct ieee80211_rate *bitrates; int n_bitrates;
     struct ieee80211_ht_cap ht_cap; struct ieee80211_vht_cap vht_cap;  
+};
+
+// Modificado para conter o membro 'priv' exigido pela macro rtl_priv(hw) em wifi.h
+struct ieee80211_hw {
+    void *priv; 
+    void *wiphy;
 };
 
 struct wireless_dev { int dummy; };
@@ -468,6 +531,7 @@ struct wiphy {
 struct ieee80211_tx_rate { u32 flags; u8 idx; };
 struct ieee80211_tx_info { u32 flags; int band; };
 struct ieee80211_vif { struct { int use_short_slot; } bss_conf; };
+struct ieee80211_sta;
 
 struct ieee80211_mgmt {
     u16 frame_control; u8 da[ETH_ALEN]; u8 sa[ETH_ALEN]; u8 bssid[ETH_ALEN];
@@ -484,7 +548,7 @@ struct ieee80211_mgmt {
 };
 
 // =========================================================================
-// 15. ENGINE DE COMPATIBILIDADE MAC80211 (MOCK INLINE)
+// 16. ENGINE DE COMPATIBILIDADE MAC80211 (MOCK INLINE)
 // =========================================================================
 static inline int ieee80211_is_beacon(unsigned short fc) { return (fc & 0x00fc) == 0x0080; }
 static inline int ieee80211_is_mgmt(unsigned short fc) { return (fc & 0x000c) == 0x0000; }
