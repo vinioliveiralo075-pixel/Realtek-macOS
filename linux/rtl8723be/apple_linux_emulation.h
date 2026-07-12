@@ -190,6 +190,7 @@ struct ieee80211_hw {
     size_t sta_data_size;
     struct ieee80211_hw_conf conf;
     const char *rate_control_algorithm;
+    u32 max_rx_aggregation_subframes; // <-- Injetado bem aqui!
 };
 
 // Estrutura de status de recepção de pacotes
@@ -698,7 +699,7 @@ static inline struct ieee80211_rate *ieee80211_get_tx_rate(void *hw, void *info)
 }
 
 // ============================================================================
-// SUPORTE ADONIS PARA EDCA, AGENDAMENTO, TEMPO E VALORES DE STA (BASE.C)
+// SUPORTE FINAL PARA LISTAS, ALOCAÇÃO ATÔMICA E AGREGAÇÃO (BASE.C)
 // ============================================================================
 
 // 1. Definições de Identificadores VHT faltantes
@@ -727,7 +728,7 @@ static inline struct ieee80211_rate *ieee80211_get_tx_rate(void *hw, void *info)
 static inline int time_before(unsigned long a, unsigned long b) { return (long)(b - a) > 0; }
 static inline void usleep_range(unsigned long min, unsigned long max) {}
 
-// 4. Estruturas Corrigidas para casamento de sub-membros (Anon_Union/IP)
+// 4. Estruturas Corrigidas para casamento de sub-membros (Anon_Union/IP/Agg)
 struct ieee80211_mgmt {
     union {
         struct {
@@ -745,17 +746,28 @@ struct iphdr {
     u8 protocol;
 };
 
-// 5. Estruturas de Filas e VIF faltantes para os parâmetros EDCA
 struct ieee80211_vif {
     struct {
         int use_short_slot;
     } bss_conf;
 };
 
+// 5. Macros e Suporte a Listas Encadeadas do Linux (List Stubs)
+#define GFP_ATOMIC 0
+#define IEEE80211_MAX_AMPDU_BUF 64
+
+#define list_for_each_entry_safe(pos, n, head, member) \
+    for (pos = __typeof__(*pos)0, n = __typeof__(*pos)0; 0; )
+
+static inline void list_del(void *entry) {}
+static inline void list_del_init(void *entry) {}
+static inline void *kmalloc(size_t size, int flags) { return IOMallocZero(size); }
+
 // 6. Macros e Funções Inline extras (Frames, Headers, Endianness e Callbacks)
 static inline int ieee80211_is_data(u16 fc) { return (fc & 0x000c) == 0x0008; }
 static inline int ieee80211_is_auth(u16 fc) { return fc == 0x00b0; }
 static inline int ieee80211_is_probe_req(u16 fc) { return fc == 0x0040; }
+static inline int ieee80211_is_probe_resp(u16 fc) { return fc == 0x0050; }
 static inline int ieee80211_is_action(u16 fc) { return fc == 0x00d0; }
 static inline u8 ieee80211_get_hdrlen_from_skb(void *skb) { return 24; }
 
