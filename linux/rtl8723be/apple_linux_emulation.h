@@ -743,9 +743,26 @@ static inline u64 div64_u64(u64 dividend, u64 divisor) { return dividend / divis
 #define from_timer(var, callback_timer, timer_fieldname) \
     container_of(callback_timer, struct rtl_priv, works.watchdog_timer)
 
-// 4. Estruturas Corrigidas para casamento de sub-membros
+// ============================================================================
+// 4. ESTRUTURAS CORRIGIDAS PARA CASAMENTO DE SUB-MEMBROS E RETRANSMISSÃO
+// ============================================================================
+
+#ifndef ETH_ALEN
+#define ETH_ALEN 6
+#endif
+
+#define IEEE80211_FTYPE_MGMT   0x0000
+#define IEEE80211_STYPE_ACTION 0x00d0
+
 struct ieee80211_mgmt {
+    u16 frame_control;
+    u8 da[ETH_ALEN];
+    u8 sa[ETH_ALEN];
+    u8 bssid[ETH_ALEN];
     union {
+        struct {
+            u8 variable[1];
+        } beacon;
         struct {
             union {
                 struct {
@@ -787,6 +804,7 @@ static inline u8 ieee80211_get_hdrlen_from_skb(void *skb) { return 24; }
 static inline u16 be16_to_cpup(const __be16 *p) { return (u16)ntohs(*p); }
 static inline int atomic_inc_return(void *v) { return 1; }
 
+#define ieee80211_connection_loss(...) do { } while(0)
 static inline void ieee80211_start_tx_ba_cb_irqsafe(void *vif, const u8 *addr, u8 tid) {}
 static inline void ieee80211_stop_tx_ba_cb_irqsafe(void *vif, const u8 *addr, u8 tid) {}
 static inline void ieee80211_connection_loss(void *hw, void *vif, u16 reason, int irq) {}
@@ -795,5 +813,15 @@ static inline void ieee80211_connection_loss(void *hw, void *vif, u16 reason, in
 static inline int queue_delayed_work(void *wq, void *dwork, unsigned long delay) { return 0; }
 #define IEEE80211_SKB_RXCB(skb) ((void *)((skb)->data))
 static inline void ieee80211_rx_irqsafe(void *hw, void *skb) {}
+
+// Suporte extra para listas
+#define list_first_entry_or_null(ptr, type, member) \
+    ({ void *__src = (ptr); __src ? (type *)0 : (type *)0; })
+
+// Utilitários de sk_buff ausentes
+static inline void skb_reserve(struct sk_buff *skb, int len) {}
+static inline void *skb_put_zero(struct sk_buff *skb, unsigned int len) { return (void *)skb->data; }
+static inline u16 cpu_to_le16(u16 val) { return val; }
+static inline struct sk_buff *dev_alloc_skb(unsigned int length) { return (struct sk_buff *)0; }
 
 #endif // APPLE_LINUX_EMULATION_H
