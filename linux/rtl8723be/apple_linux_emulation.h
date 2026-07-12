@@ -506,8 +506,21 @@ enum nl80211_channel_type {
     NL80211_CHAN_HT40PLUS,
 };
 
-// Declaração fantasma da estrutura USB do Linux para evitar warnings de escopo
+enum ieee80211_smps_mode {
+    IEEE80211_SMPS_STATIC,
+    IEEE80211_SMPS_DYNAMIC,
+    IEEE80211_SMPS_DISABLED,
+};
+
+// Declarações fantasmas para evitar warnings de escopo/visibilidade no Clang
 struct urb; 
+struct firmware;
+struct regulatory_request;
+
+// MACROS HT CAPABILITIES (CORREÇÃO PARA HW.C)
+#define IEEE80211_HT_CAP_SUP_WIDTH_20_40 (1 << 1)  // 0x0002
+#define IEEE80211_HT_CAP_SGI_20          (1 << 5)  // 0x0020
+#define IEEE80211_HT_CAP_SGI_40          (1 << 6)  // 0x0040
 
 #define IEEE80211_CHAN_NO_HT40MINUS      (1 << 0)
 #define IEEE80211_HT_CAP_DSSSCCK40       (1 << 2)
@@ -563,7 +576,6 @@ struct ieee80211_supported_band {
 };
 struct wireless_dev { int dummy; };
 
-// Estrutura para o Clang aceitar a inicialização em bloco do base.c
 struct wiphy_vendor_command {
     unsigned int vendor_id;
     unsigned int subcmd;
@@ -669,5 +681,7 @@ struct ieee80211_vif { struct { int use_short_slot; } bss_conf; };
 #ifdef __cplusplus
 }
 #endif
+
+#endif // APPLE_LINUX_EMULATION_H
 
 #endif // APPLE_LINUX_EMULATION_H
