@@ -653,4 +653,47 @@ static inline struct ieee80211_tx_info *IEEE80211_SKB_CB(struct sk_buff *skb) {
 #define module_init(x) void linux_init_##x(void) {}
 #define module_exit(x) void linux_exit_##x(void) {}
 
+// ==========================================
+// SUPORTE DE COMPATIBILIDADE MAC/LINUX (DRIVERS)
+// ==========================================
+
+// 1. Macros de gerenciamento de Arrays e Bits
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+#endif
+#define DMA_BIT_MASK(n) (((n) == 64) ? ~0ULL : ((1ULL << (n)) - 1))
+
+// 2. Definições de flags de DMA e PCI do Linux
+#define PCI_DMA_TODEVICE   1
+#define PCI_DMA_FROMDEVICE 2
+
+// 3. Emulação de travas de Interrupção (IRQs)
+#define local_save_flags(flags)  do { (void)(flags); } while(0)
+#define local_irq_enable()       do { } while(0)
+#define local_irq_disable()      do { } while(0)
+#define local_irq_restore(flags) do { (void)(flags); } while(0)
+
+// 4. Definições de Caps de Wi-Fi de Alta Velocidade (HT)
+#define IEEE80211_HT_CAP_SGI_40        0x00000020
+#define IEEE80211_HT_CAP_SGI_20        0x00000010
+#define IEEE80211_HT_CAP_MAX_AMSDU_7935 0x00000400
+
+// 5. Estruturas completas exigidas pelo hw.c
+struct ieee80211_mcs_cap {
+    unsigned char rx_mask[2];
+};
+
+struct ieee80211_ht_cap {
+    unsigned int cap;
+    struct ieee80211_mcs_cap mcs;
+};
+
+// Substitua a declaração antiga "struct ieee80211_sta;" por esta:
+struct ieee80211_sta {
+    struct ieee80211_ht_cap ht_cap;
+    void *drv_priv;
+    int aid;
+    unsigned int supp_rates[2];
+};
+
 #endif /* APPLE_LINUX_EMULATION_H */
