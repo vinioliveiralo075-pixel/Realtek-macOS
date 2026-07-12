@@ -248,6 +248,7 @@ struct ieee80211_key_conf {
 
 struct ieee80211_tx_rate_control {
     unsigned int flags;
+    u8 idx;
 };
 
 struct ieee80211_tx_control {
@@ -691,7 +692,7 @@ static inline struct ieee80211_rate *ieee80211_get_tx_rate(void *hw, void *info)
 }
 
 // ============================================================================
-// COMPATIBILIDADE REDE/IP, PROTOCOLOS E ESTRUTURAS ADICIONAIS (BASE.C)
+// SUPORTE ADONIS PARA EDCA, AGENDAMENTO, TEMPO E VALORES DE STA (BASE.C)
 // ============================================================================
 
 // 1. Definições de Identificadores VHT faltantes
@@ -713,7 +714,13 @@ static inline struct ieee80211_rate *ieee80211_get_tx_rate(void *hw, void *info)
 #define ETH_P_PAE  0x888E
 #define IPPROTO_UDP 17
 
-// 3. Estruturas Corrigidas para casamento de sub-membros (Anon_Union/IP)
+// 3. Constantes de Tempo e Atraso (Jiffies / HZ)
+#define HZ 100
+extern unsigned long jiffies;
+static inline int time_before(unsigned long a, unsigned long b) { return (long)(b - a) > 0; }
+static inline void usleep_range(unsigned long min, unsigned long max) {}
+
+// 4. Estruturas Corrigidas para casamento de sub-membros (Anon_Union/IP)
 struct ieee80211_mgmt {
     union {
         struct {
@@ -731,7 +738,26 @@ struct iphdr {
     u8 protocol;
 };
 
-// 4. Macros e Funções Inline extras (Frames, Headers e Endianness)
+// 5. Estruturas de Filas e VIF faltantes para os parâmetros EDCA
+struct ieee80211_vif {
+    struct {
+        int use_short_slot;
+    } bss_conf;
+};
+
+struct ieee80211_tx_queue_params {
+    u16 txop;
+    u16 cw_max;
+    u16 cw_min;
+    u16 aifs;
+};
+
+struct ieee80211_sta {
+    u8 addr[6];
+    u16 aid;
+};
+
+// 6. Macros e Funções Inline extras (Frames, Headers, Endianness e Callbacks)
 static inline int ieee80211_is_data(u16 fc) { return (fc & 0x000c) == 0x0008; }
 static inline int ieee80211_is_auth(u16 fc) { return fc == 0x00b0; }
 static inline int ieee80211_is_probe_req(u16 fc) { return fc == 0x0040; }
@@ -740,8 +766,12 @@ static inline u8 ieee80211_get_hdrlen_from_skb(void *skb) { return 24; }
 
 static inline u16 be16_to_cpup(const __be16 *p) { return (u16)ntohs(*p); }
 static inline int atomic_inc_return(void *v) { return 1; }
+static inline int fls(int x) { return x ? 32 - __builtin_clz(x) : 0; }
 
-// 5. Definição do Buffer de Controle (Evita erro de missing 'cb' ou 'status')
+static inline void ieee80211_start_tx_ba_cb_irqsafe(void *vif, const u8 *addr, u8 tid) {}
+static inline void ieee80211_stop_tx_ba_cb_irqsafe(void *vif, const u8 *addr, u8 tid) {}
+
+// 7. Definição do Buffer de Controle (Evita erro de missing 'cb' ou 'status')
 #define IEEE80211_SKB_RXCB(skb) ((void *)((skb)->data))
 static inline void ieee80211_rx_irqsafe(void *hw, void *skb) {}
 
