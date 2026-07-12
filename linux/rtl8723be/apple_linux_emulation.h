@@ -678,10 +678,4 @@ struct ieee80211_mgmt {
 struct iphdr { u8 ihl:4, version:4; u8 protocol; };
 struct ieee80211_vif { struct { int use_short_slot; } bss_conf; };
 
-#ifdef __cplusplus
-}
-#endif
-
-#endif // APPLE_LINUX_EMULATION_H
-
 #endif // APPLE_LINUX_EMULATION_H
