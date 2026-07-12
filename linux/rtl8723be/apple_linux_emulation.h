@@ -258,6 +258,12 @@ struct ieee80211_tx_control {
 struct ieee80211_tx_info {
     u32 flags;
     struct ieee80211_tx_control control;
+    struct {
+        struct {
+            u32 flags;
+            u8 idx;
+        } rates[4];
+    } status;
 };
 
 // --- 7. STUBS DE FUNÇÕES, ALOCADORES E MEMÓRIA ---
@@ -685,7 +691,7 @@ static inline struct ieee80211_rate *ieee80211_get_tx_rate(void *hw, void *info)
 }
 
 // ============================================================================
-// SUPORTE AVANÇADO DE FRAME E COMPATIBILIDADE DE TAXAS (BASE.C)
+// COMPATIBILIDADE REDE/IP, PROTOCOLOS E ESTRUTURAS ADICIONAIS (BASE.C)
 // ============================================================================
 
 // 1. Definições de Identificadores VHT faltantes
@@ -699,30 +705,44 @@ static inline struct ieee80211_rate *ieee80211_get_tx_rate(void *hw, void *info)
 #define IEEE80211_VHT_MCS_SUPPORT_0_9 2
 #endif
 
-// 2. Máscaras adicionais para controle de taxa
+// 2. Máscaras e Protocolos de Rede (Ethernet e IP)
 #define IEEE80211_ADDBA_PARAM_TID_MASK 0x001e
+#define ETH_P_IP   0x0800
+#define ETH_P_ARP  0x0806
+#define ETH_P_IPV6 0x86DD
+#define ETH_P_PAE  0x888E
+#define IPPROTO_UDP 17
 
-// 3. Estrutura de gerenciamento para evitar "incomplete definition" no base.c
+// 3. Estruturas Corrigidas para casamento de sub-membros (Anon_Union/IP)
 struct ieee80211_mgmt {
-    struct {
+    union {
         struct {
-            struct {
+            union {
                 struct {
                     u16 capab;
                 } addba_req;
-            } action;
-        } u;
+            } u;
+        } action;
     } u;
 };
 
-// 4. Macros e Funções de checagem de tipo de pacote (Frames)
+struct iphdr {
+    u8 ihl:4, version:4;
+    u8 protocol;
+};
+
+// 4. Macros e Funções Inline extras (Frames, Headers e Endianness)
 static inline int ieee80211_is_data(u16 fc) { return (fc & 0x000c) == 0x0008; }
 static inline int ieee80211_is_auth(u16 fc) { return fc == 0x00b0; }
 static inline int ieee80211_is_probe_req(u16 fc) { return fc == 0x0040; }
 static inline int ieee80211_is_action(u16 fc) { return fc == 0x00d0; }
+static inline u8 ieee80211_get_hdrlen_from_skb(void *skb) { return 24; }
 
-// 5. Stubs de recepção e controle de buffer (skb)
-#define IEEE80211_SKB_RXCB(skb) ((void *)((skb)->cb))
+static inline u16 be16_to_cpup(const __be16 *p) { return (u16)ntohs(*p); }
+static inline int atomic_inc_return(void *v) { return 1; }
+
+// 5. Definição do Buffer de Controle (Evita erro de missing 'cb' ou 'status')
+#define IEEE80211_SKB_RXCB(skb) ((void *)((skb)->data))
 static inline void ieee80211_rx_irqsafe(void *hw, void *skb) {}
 
 #endif // APPLE_LINUX_EMULATION_H
