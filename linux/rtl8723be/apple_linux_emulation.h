@@ -13,31 +13,53 @@ extern "C" {
 #endif
 
 // =========================================================================
-// 1. BYPASS DE SEGURANÇA XNU & ALINHAMENTO
+// 1. MACROS DE VERSIONAMENTO DO KERNEL LINUX & ATRIBUTOS COMPILADOR
 // =========================================================================
+#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
+// Forçando uma versão estável clássica do Linux (ex: 4.19.0) para satisfazer os #if de wifi.h
+#define LINUX_VERSION_CODE KERNEL_VERSION(4, 19, 0)
+
+// Correção dos erros de __printf(x, y) que quebram o debug.h
+#ifndef __printf
+  #define __printf(a, b) __attribute__((format(printf, a, b)))
+#endif
+
+#ifndef __packed
+  #define __packed __attribute__((packed))
+#endif
+
+#ifndef __aligned
+  #define __aligned(x) __attribute__((aligned(x)))
+#endif
+
+#define __iomem
+#define __init
+#define __exit
+#define __must_check
+#define __always_unused
+#define __maybe_unused
+
+// =========================================================================
+// 2. MACROS DE MANIPULAÇÃO DE BITS e BYPASS XNU
+// =========================================================================
+#ifndef BIT
+  #define BIT(nr) (1UL << (nr))
+#endif
+#ifndef BIT_ULL
+  #define BIT_ULL(nr) (1ULL << (nr))
+#endif
+
 #undef memcpy
 #define memcpy(dst, src, n) __builtin_memcpy(dst, src, n)
 #undef memset
 #define memset(dst, val, n) __builtin_memset(dst, val, n)
 #undef memmove
 #define memmove(dst, src, n) __builtin_memmove(dst, src, n)
-
-#ifdef __packed
-#undef __packed
-#endif
-#define __packed __attribute__((packed))
-
-#ifdef __aligned
-#undef __aligned
-#endif
-#define __aligned(x) __attribute__((aligned(x)))
-
-#define __iomem
-#define __init
-#define __exit
+#undef memcmp
+#define memcmp(s1, s2, n) __builtin_memcmp(s1, s2, n)
 
 // =========================================================================
-// 2. TIPOS BÁSICOS DO KERNEL
+// 3. TIPOS BÁSICOS DO KERNEL LINUX
 // =========================================================================
 typedef unsigned char        u8;
 typedef unsigned short       u16;
@@ -54,16 +76,24 @@ typedef unsigned int         __le32;
 typedef unsigned long long   __le64;
 typedef unsigned short       __be16;
 typedef unsigned int         __be32;
+typedef unsigned long long   __be64;
 
 typedef long long            time64_t;
 typedef unsigned long        dma_addr_t;
 typedef unsigned long        kernel_ulong_t;
+typedef unsigned int         gfp_t;
 
 typedef struct { volatile int counter; } atomic_t;
 typedef struct { int dummy; } spinlock_t;
 
+#ifndef bool
+  typedef int bool;
+  #define true 1
+  #define false 0
+#endif
+
 // =========================================================================
-// 3. OPERAÇÕES DE I/O (MMIO)
+// 4. OPERAÇÕES DE I/O (MMIO - MEMORY MAPPED I/O)
 // =========================================================================
 #define readb(addr)        (*(volatile u8 *)(addr))
 #define readw(addr)        (*(volatile u16 *)(addr))
@@ -73,7 +103,7 @@ typedef struct { int dummy; } spinlock_t;
 #define writel(val, addr)  (*(volatile u32 *)(addr) = (val))
 
 // =========================================================================
-// 4. CONFIGURAÇÕES DE TIMING, JIFFIES & COMPLETIONS
+// 5. TIMING, JIFFIES E RETARDOS (CORREÇÃO DE PRECISSÃO 64-to-32)
 // =========================================================================
 #ifndef HZ
   #define HZ 100
@@ -85,9 +115,13 @@ typedef struct { int dummy; } spinlock_t;
 #define MSEC_PER_SEC 1000
 #define jiffies 0UL
 
-#define mdelay(x)          IODelay((x) * 1000)
-#define udelay(x)          IODelay(x)
-static inline void usleep_range(unsigned long min, unsigned long max) { IODelay(min); }
+#define mdelay(x)          IODelay((unsigned int)((x) * 1000))
+#define udelay(x)          IODelay((unsigned int)(x))
+
+// Adicionado cast explícito para unsigned int eliminando o warning [-Wshorten-64-to-32]
+static inline void usleep_range(unsigned long min, unsigned long max) { 
+    IODelay((unsigned int)min); 
+}
 
 #ifndef jiffies_to_msecs
   #define jiffies_to_msecs(x) ((unsigned int)((x) * 1000 / hz))
@@ -105,14 +139,14 @@ static inline int time_after(unsigned long a, unsigned long b) { return (long)(a
 #define complete(x)                             ((void)(x))
 
 // =========================================================================
-// 5. LOCKS, ATOMICIDADE E DEBUG CONTRATUAL
+// 6. LOCKS, EXCLUSÃO MÚTUA E ATOMICIDADE
 // =========================================================================
-#define spin_lock(lock)
-#define spin_unlock(lock)
-#define spin_lock_bh(lock)
-#define spin_unlock_bh(lock)
-#define rcu_read_lock()
-#define rcu_read_unlock()
+#define spin_lock(lock)                         ((void)0)
+#define spin_unlock(lock)                       ((void)0)
+#define spin_lock_bh(lock)                      ((void)0)
+#define spin_unlock_bh(lock)                    ((void)0)
+#define rcu_read_lock()                         ((void)0)
+#define rcu_read_unlock()                       ((void)0)
 #define spin_lock_init(l)                       ((void)(l))
 
 #define spin_lock_irqsave(lock, flags)          do { (void)(flags); } while(0)
@@ -123,20 +157,24 @@ static inline int time_after(unsigned long a, unsigned long b) { return (long)(a
 
 static inline int test_bit(int nr, const volatile unsigned long *addr) { return (*addr & (1UL << nr)) != 0; }
 static inline int atomic_inc_return(atomic_t *v) { return ++(v->counter); }
+static inline void atomic_set(atomic_t *v, int i) { v->counter = i; }
+static inline int atomic_read(const atomic_t *v) { return v->counter; }
 
 // =========================================================================
-// 6. PRINTK & DEBUGS
+// 7. SUBSISTEMA DE CAPTURA DE LOGS (PRINTK)
 // =========================================================================
 #define printk printf
 #define pr_info(fmt, ...)  printf(fmt, ##__VA_ARGS__)
 #define pr_err(fmt, ...)   printf(fmt, ##__VA_ARGS__)
+#define pr_warn(fmt, ...)  printf(fmt, ##__VA_ARGS__)
+#define pr_debug(fmt, ...) printf(fmt, ##__VA_ARGS__)
 
 struct seq_file { int dummy; };
 #define seq_puts(m, x)          ((void)0)
 #define seq_printf(m, fmt, ...) ((void)0)
 
 // =========================================================================
-// 7. ENDEREÇAMENTO E REDE DE INFRAESTRUTURA (MAC & SK_BUFF)
+// 8. REDE E TRATAMENTO DE ENDEREÇOS MAC
 // =========================================================================
 #define ETH_ALEN 6
 #define ETH_P_IP   0x0800
@@ -154,10 +192,16 @@ static inline int is_broadcast_ether_addr(const unsigned char *addr) {
 }
 static inline bool is_valid_ether_addr(const unsigned char *addr) { (void)addr; return true; }
 
+// =========================================================================
+// 9. EMULAÇÃO COMPLETA DE SK_BUFF (PACOTES LINUX)
+// =========================================================================
 struct sk_buff { 
     void *data; 
     unsigned int len; 
-    unsigned int priority; 
+    unsigned int priority;
+    unsigned char *head;
+    unsigned char *tail;
+    unsigned int data_len;
 };
 struct sk_buff_head { int dummy; };
 
@@ -185,19 +229,24 @@ static inline void *skb_push(struct sk_buff *skb, unsigned int len) {
 struct iphdr { u8 ihl:4, version:4; u8 protocol; };
 
 // =========================================================================
-// 8. INFRAESTRUTURA DE WORKQUEUES E TIMERS
+// 10. WORKQUEUES, TIMERS E AGENDAMENTOS
 // =========================================================================
 struct timer_list { int dummy; };
 struct delayed_work { int dummy; };
+struct work_struct { int dummy; };
 
 #define timer_setup(timer, callback, flags)     ((void)(timer), (void)(callback), (void)(flags))
 #define del_timer_sync(t)                       ((void)(t))
 #define INIT_DELAYED_WORK(w, f)                 ((void)(w), (void)(f))
+#define INIT_WORK(w, f)                         ((void)(w), (void)(f))
 #define cancel_delayed_work(w)                  ((void)(w))
-static inline int mod_timer(struct timer_list *timer, unsigned long expires) { return 0; }
+#define cancel_work_sync(w)                     ((void)(w))
+#define schedule_work(w)                        ((void)(w))
 
+static inline int mod_timer(struct timer_list *timer, unsigned long expires) { return 0; }
 static inline void *alloc_workqueue(const char *fmt, unsigned int flags, int max_active, ...) { return (void *)1; }
 static inline void queue_delayed_work(void *wq, struct delayed_work *dwork, unsigned long delay) {}
+static inline void destroy_workqueue(void *wq) {}
 
 #define to_delayed_work(x)                      (x)
 #define from_timer(var, callback_timer, timer_fieldname) \
@@ -206,7 +255,7 @@ static inline void queue_delayed_work(void *wq, struct delayed_work *dwork, unsi
 static inline int in_interrupt(void) { return 0; }
 
 // =========================================================================
-// 9. SUPORTE PCI E SUPORTE DO MÓDULO DO DRIVER
+// 11. SUBSISTEMA PCI E GERENCIAMENTO DE MEMÓRIA (MOCK)
 // =========================================================================
 struct pci_device_id {
     unsigned int vendor, device;
@@ -257,7 +306,7 @@ struct pci_driver {
 };
 
 // =========================================================================
-// 10. ENUMERAÇÕES, ESTRUTURAS E CONSTANTES DO SUBSISTEMA 802.11
+// 12. OPERAÇÕES DE ENDIANNESS (CONVERSÕES DE BYTE)
 // =========================================================================
 #ifndef cpu_to_le32
   #define cpu_to_le32(x) ((unsigned int)(x))
@@ -279,7 +328,11 @@ static inline unsigned int be32_to_cpu(__be32 val) {
 static inline unsigned short be16_to_cpup(const __be16 *p) { return be16_to_cpu(*p); }
 static inline u64 div64_u64(u64 dividend, u64 divisor) { return dividend / divisor; }
 
+// =========================================================================
+// 13. CONSTANTES E MÁSCARAS DO PADRÃO IEEE 802.11
+// =========================================================================
 #define IEEE80211_FCTL_FTYPE       0x000c
+#define IEEE80211_FCTL_STYPE       0x00f0
 #define IEEE80211_FTYPE_MGMT       0x0000
 #define IEEE80211_FTYPE_CTL        0x0004
 #define IEEE80211_SCTL_FRAG        0x000f
@@ -372,7 +425,9 @@ enum ieee80211_hw_set_type {
     SUPPORTS_AMSDU_IN_AMPDU, SUPPORTS_PS, PS_NULLFUNC_STACK, SUPPORTS_DYNAMIC_PS
 };
 
-// Declarações Fantasmas para evitar conflitos de escopo opacos
+// =========================================================================
+// 14. ESTRUTURAS ROBUSTAS DO SUBSISTEMA MAC80211 EXIGIDAS PELO DRIVER
+// =========================================================================
 struct urb; 
 struct firmware;
 struct regulatory_request;
@@ -407,6 +462,7 @@ struct wiphy {
     int n_vendor_commands;
     struct ieee80211_supported_band *bands[2];
     unsigned int interface_modes; unsigned int flags; int rts_threshold;
+    char perm_addr[ETH_ALEN];
 };
 
 struct ieee80211_tx_rate { u32 flags; u8 idx; };
@@ -428,7 +484,7 @@ struct ieee80211_mgmt {
 };
 
 // =========================================================================
-// 11. ENGENHARIA DE MOCK INLINE (FUNÇÕES COMPATÍVEIS PARA BASE.C)
+// 15. ENGINE DE COMPATIBILIDADE MAC80211 (MOCK INLINE)
 // =========================================================================
 static inline int ieee80211_is_beacon(unsigned short fc) { return (fc & 0x00fc) == 0x0080; }
 static inline int ieee80211_is_mgmt(unsigned short fc) { return (fc & 0x000c) == 0x0000; }
