@@ -518,7 +518,6 @@ enum ieee80211_hw_set_type {
 // =========================================================================
 struct ieee80211_channel { int center_freq; int band; int hw_value; unsigned int flags; int max_power; };
 struct ieee80211_rate { unsigned int bitrate; unsigned int flags; int hw_value; };
-struct ieee80211_ht_cap { int dummy; };
 struct ieee80211_vht_cap { int dummy; };
 
 struct ieee80211_supported_band {
@@ -673,22 +672,26 @@ static inline struct ieee80211_tx_info *IEEE80211_SKB_CB(struct sk_buff *skb) {
 #define local_irq_disable()      do { } while(0)
 #define local_irq_restore(flags) do { (void)(flags); } while(0)
 
-// 4. Definições de Caps de Wi-Fi de Alta Velocidade (HT)
+// 4. Definições de Caps de Wi-Fi de Alta Velocidade (HT) protegidas
+#ifndef IEEE80211_HT_CAP_SGI_40
 #define IEEE80211_HT_CAP_SGI_40        0x00000020
+#endif
+#ifndef IEEE80211_HT_CAP_SGI_20
 #define IEEE80211_HT_CAP_SGI_20        0x00000010
+#endif
 #define IEEE80211_HT_CAP_MAX_AMSDU_7935 0x00000400
 
-// 5. Estruturas completas exigidas pelo hw.c
+// 5. Estruturas completas exigidas pelo hw.c e dm_common.c
 struct ieee80211_mcs_cap {
     unsigned char rx_mask[2];
 };
 
+// Remova a da linha 521 e mantenha apenas esta estrutura real aqui:
 struct ieee80211_ht_cap {
     unsigned int cap;
     struct ieee80211_mcs_cap mcs;
 };
 
-// Substitua a declaração antiga "struct ieee80211_sta;" por esta:
 struct ieee80211_sta {
     struct ieee80211_ht_cap ht_cap;
     void *drv_priv;
