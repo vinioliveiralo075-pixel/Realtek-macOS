@@ -7,9 +7,15 @@
 #include <sys/time.h>
 #include <sys/errno.h>
 
+// Proteção para o cabeçalho não quebrar os arquivos nativos em C++ (.cpp) do macOS
 #ifdef __cplusplus
-extern "C" {
+#define LINUX_EMU_EXTERN_C extern "C"
+#else
+#define LINUX_EMU_EXTERN_C
 #endif
+
+// Em vez de abrir o bloco global aqui, usamos o modificador nas funções se necessário,
+// ou simplesmente impedimos que ele englobe o código C++ do IOKit.
 
 // --- BYPASS DE SEGURANÇA XNU (BOUNDS SAFETY) ---
 #undef memcpy
