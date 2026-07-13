@@ -520,6 +520,15 @@ struct ieee80211_channel { int center_freq; int band; int hw_value; unsigned int
 struct ieee80211_rate { unsigned int bitrate; unsigned int flags; int hw_value; };
 struct ieee80211_vht_cap { int dummy; };
 
+struct ieee80211_mcs_cap {
+    unsigned char rx_mask[2];
+};
+
+struct ieee80211_ht_cap {
+    unsigned int cap;
+    struct ieee80211_mcs_cap mcs;
+};
+
 struct ieee80211_supported_band {
     int band; struct ieee80211_channel *channels; int n_channels;
     struct ieee80211_rate *bitrates; int n_bitrates;
@@ -682,15 +691,6 @@ static inline struct ieee80211_tx_info *IEEE80211_SKB_CB(struct sk_buff *skb) {
 #define IEEE80211_HT_CAP_MAX_AMSDU_7935 0x00000400
 
 // 5. Estruturas completas exigidas pelo hw.c e dm_common.c
-struct ieee80211_mcs_cap {
-    unsigned char rx_mask[2];
-};
-
-// Remova a da linha 521 e mantenha apenas esta estrutura real aqui:
-struct ieee80211_ht_cap {
-    unsigned int cap;
-    struct ieee80211_mcs_cap mcs;
-};
 
 struct ieee80211_sta {
     struct ieee80211_ht_cap ht_cap;
