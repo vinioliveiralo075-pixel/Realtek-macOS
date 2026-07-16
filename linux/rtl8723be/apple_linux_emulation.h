@@ -144,7 +144,7 @@ struct ieee80211_tx_queue_params {
 };
 
 #ifndef RTL_MAC80211_NUM_QUEUE
-  #define RTL_MAC80211_NUM_QUEUE 4
+  #define RTL_MAC80211_NUM_QUEUE 5
 #endif
 
 #ifndef NUM_NL80211_BANDS
