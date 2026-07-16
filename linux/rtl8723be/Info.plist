@@ -44,7 +44,6 @@
             <string>itlwm</string>
             <key>IOMatchCategory</key>
             <string>itlwm</string>
-            <!-- Inicia de forma genérica anexado ao próprio recurso root do sistema -->
             <key>IOProviderClass</key>
             <string>IOResources</string>
             <key>IOResourceMatch</key>
@@ -64,6 +63,9 @@
         <key>com.apple.kpi.libkern</key>
         <string>21.0.0</string>
         <key>com.apple.kpi.mach</key>
+        <string>21.0.0</string>
+        <!-- Adicionado para permitir funções de rede legadas e de baixo nível em Kexts de terceiros -->
+        <key>com.apple.kpi.unsupported</key>
         <string>21.0.0</string>
     </dict>
 </dict>
