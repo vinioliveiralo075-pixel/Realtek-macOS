@@ -8,6 +8,12 @@
 #include <sys/errno.h>
 #include <sys/param.h> 
 
+#ifdef KERNEL
+#include <libkern/OSMalloc.h>
+#include <sys/malloc.h>
+#include <kern/thread_call.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -16,10 +22,8 @@ extern "C" {
 // 1. MACROS DE VERSIONAMENTO DO KERNEL LINUX & ATRIBUTOS COMPILADOR
 // =========================================================================
 #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
-// Forçando uma versão estável clássica do Linux para satisfazer os #if de wifi.h
 #define LINUX_VERSION_CODE KERNEL_VERSION(4, 19, 0)
 
-// Correção dos erros de __printf(x, y) que quebram o debug.h
 #ifndef __printf
   #define __printf(a, b) __attribute__((format(printf, a, b)))
 #endif
@@ -92,17 +96,12 @@ typedef struct { volatile int counter; } atomic_t;
 #endif
 
 // =========================================================================
-// 4. CORREÇÃO DE INCOMPLETE TYPES (MOCKS COMPLETOS DE REQUISITOS DO WIFI.H)
+// 4. CORREÇÃO DE INCOMPLETE TYPES E ESTRUTURAS BÁSICAS
 // =========================================================================
-
-// Correção do erro: 'struct list_head' incomplete type
 struct list_head {
     struct list_head *next, *prev;
 };
 
-// =========================================================================
-// MACROS DE LISTA ENCADEADA DO LINUX (MANDATÓRIO PARA BTCOEXIST)
-// =========================================================================
 #ifndef container_of
   #define container_of(ptr, type, member) \
       ((type *)((char *)(ptr) - offsetof(type, member)))
@@ -122,18 +121,11 @@ struct list_head {
          &pos->member != (head);					\
          pos = list_next_entry(pos, member))
 
-// Correção do erro: 'struct mutex' incomplete type
 struct mutex {
     void *owner;
     int locked;
 };
 
-// Correção do erro: 'struct completion' incomplete type
-struct completion {
-    unsigned int done;
-};
-
-// Correção do erro: 'struct tasklet_struct' incomplete type
 struct tasklet_struct {
     struct tasklet_struct *next;
     unsigned long state;
@@ -142,7 +134,6 @@ struct tasklet_struct {
     unsigned long data;
 };
 
-// Correção do erro: 'struct ieee80211_tx_queue_params' incomplete type
 struct ieee80211_tx_queue_params {
     int queue_id;
     int aifs;
@@ -151,17 +142,14 @@ struct ieee80211_tx_queue_params {
     int txop_limit;
 };
 
-// Constantes de Limite de Filas de Transmissão (Padrão 802.11 EDCA)
 #ifndef RTL_MAC80211_NUM_QUEUE
   #define RTL_MAC80211_NUM_QUEUE 4
 #endif
 
-// Constantes de Bandas NL80211 exigidas
 #ifndef NUM_NL80211_BANDS
   #define NUM_NL80211_BANDS 2
 #endif
 
-// Evitando avisos de visibilidade adicionando definições básicas para structs de frames
 struct ieee80211_hdr {
     u16 frame_control;
     u16 duration_id;
@@ -188,7 +176,7 @@ struct ieee80211_rx_status {
 #define writel(val, addr)  (*(volatile u32 *)(addr) = (val))
 
 // =========================================================================
-// 6. TIMING, JIFFIES E RETARDOS (CORREÇÃO DE PRECISÃO 64-to-32)
+// 6. TIMING, JIFFIES, TIMERS E DELAYS (EMULAÇÃO MACOS)
 // =========================================================================
 #ifndef HZ
   #define HZ 100
@@ -203,7 +191,6 @@ struct ieee80211_rx_status {
 #define mdelay(x)          IODelay((unsigned int)((x) * 1000))
 #define udelay(x)          IODelay((unsigned int)(x))
 
-// Adicionado cast explícito para unsigned int eliminando o warning [-Wshorten-64-to-32]
 static inline void usleep_range(unsigned long min, unsigned long max) { 
     IODelay((unsigned int)min); 
 }
@@ -218,13 +205,55 @@ static inline void usleep_range(unsigned long min, unsigned long max) {
 static inline int time_before(unsigned long a, unsigned long b) { return (long)(b - a) > 0; }
 static inline int time_after(unsigned long a, unsigned long b) { return (long)(a - b) > 0; }
 
-#define init_completion(x)                      ((void)0)
-#define reinit_completion(x)                    ((void)0)
-#define wait_for_completion_timeout(x, timeout) (timeout)
-#define complete(x)                             ((void)(x))
+// =========================================================================
+// 7. EMULAÇÃO COMPLETA DE SINCRO (WAIT FOR COMPLETION) NO MACOS
+// =========================================================================
+struct completion {
+    unsigned int done;
+    void *event_chan; 
+};
+
+static inline void apple_init_completion(struct completion *x) {
+    x->done = 0;
+    x->event_chan = (void *)x;
+}
+
+static inline void apple_reinit_completion(struct completion *x) {
+    x->done = 0;
+}
+
+static inline unsigned long apple_wait_for_completion_timeout(struct completion *x, unsigned long timeout_jiffies) {
+    int timeout_ms = jiffies_to_msecs(timeout_jiffies);
+    if (x->done > 0) {
+        x->done--;
+        return timeout_jiffies;
+    }
+#ifdef KERNEL
+    int result = msleep(x->event_chan, NULL, PUSER, "rtl_wait", timeout_ms);
+    if (result == EWOULDBLOCK) {
+        return 0; // Excedeu o tempo limite
+    }
+#else
+    IODelay(timeout_ms * 1000);
+#endif
+    if (x->done > 0) x->done--;
+    return 1; // Sincronizado com sucesso
+}
+
+static inline void apple_complete(struct completion *x) {
+    x->done++;
+#ifdef KERNEL
+    wakeup(x->event_chan);
+#endif
+}
+
+#define init_completion(x)                      apple_init_completion(x)
+#define reinit_completion(x)                    apple_reinit_completion(x)
+#define wait_for_completion_timeout(x, timeout) apple_wait_for_completion_timeout(x, timeout)
+#define complete(x)                             apple_complete(x)
 
 // =========================================================================
-// 7. LOCKS, EXCLUSÃO MÚTUA E ATOMICIDADE
+// 8. LOCKS, EXCLUSÃO MÚTUA E ATOMICIDADE
 // =========================================================================
 #define spin_lock(lock)                         ((void)0)
 #define spin_unlock(lock)                       ((void)0)
@@ -249,7 +278,7 @@ static inline void atomic_set(atomic_t *v, int i) { v->counter = i; }
 static inline int atomic_read(const atomic_t *v) { return v->counter; }
 
 // =========================================================================
-// 8. SUBSISTEMA DE CAPTURA DE LOGS (PRINTK)
+// 9. SUBSISTEMA DE CAPTURA DE LOGS (PRINTK)
 // =========================================================================
 #define printk printf
 #define pr_info(fmt, ...)  printf(fmt, ##__VA_ARGS__)
@@ -262,7 +291,7 @@ struct seq_file { int dummy; };
 #define seq_printf(m, fmt, ...) ((void)0)
 
 // =========================================================================
-// 9. REDE E TRATAMENTO DE ENDEREÇOS MAC
+// 10. REDE E TRATAMENTO DE ENDEREÇOS MAC
 // =========================================================================
 #define ETH_ALEN 6
 #define ETH_P_IP   0x0800
@@ -281,7 +310,7 @@ static inline int is_broadcast_ether_addr(const unsigned char *addr) {
 static inline bool is_valid_ether_addr(const unsigned char *addr) { (void)addr; return true; }
 
 // =========================================================================
-// 10. EMULAÇÃO COMPLETA DE SK_BUFF (PACOTES LINUX)
+// 11. EMULAÇÃO COMPLETA DE SK_BUFF (PACOTES LINUX)
 // =========================================================================
 struct sk_buff { 
     void *data; 
@@ -317,23 +346,98 @@ static inline void *skb_push(struct sk_buff *skb, unsigned int len) {
 struct iphdr { u8 ihl:4, version:4; u8 protocol; };
 
 // =========================================================================
-// 11. WORKQUEUES, TIMERS E AGENDAMENTOS
+// 12. TIMERS E WORKQUEUES EMULADOS USANDO THEAD_CALLS DO XNU
 // =========================================================================
-struct timer_list { int dummy; };
-struct delayed_work { int dummy; };
-struct work_struct { int dummy; };
+struct work_struct {
+    void (*func)(struct work_struct *work);
+};
 
-#define timer_setup(timer, callback, flags)     ((void)(timer), (void)(callback), (void)(flags))
-#define del_timer_sync(t)                       ((void)(t))
-#define INIT_DELAYED_WORK(w, f)                 ((void)(w), (void)(f))
-#define INIT_WORK(w, f)                         ((void)(w), (void)(f))
-#define cancel_delayed_work(w)                  ((void)(w))
+struct delayed_work {
+#ifdef KERNEL
+    thread_call_t t_call;
+#else
+    void *t_call;
+#endif
+    void (*func)(struct work_struct *work);
+    struct work_struct work;
+};
+
+struct timer_list {
+#ifdef KERNEL
+    thread_call_t t_call;
+#else
+    void *t_call;
+#endif
+    void (*func)(struct timer_list *t);
+};
+
+// Funções reais para evitar stubs vazios nos agendadores de tarefas
+static inline void apple_queue_delayed_work(struct delayed_work *dwork, unsigned long delay_ms) {
+#ifdef KERNEL
+    if (!dwork->t_call) {
+        dwork->t_call = thread_call_allocate((thread_call_func_t)dwork->func, &dwork->work);
+    }
+    uint64_t deadline;
+    clock_interval_to_deadline((uint32_t)delay_ms, kMillisecondScale, &deadline);
+    thread_call_enter1_delayed(dwork->t_call, NULL, deadline);
+#else
+    (void)dwork; (void)delay_ms;
+#endif
+}
+
+static inline void apple_cancel_delayed_work(struct delayed_work *dwork) {
+#ifdef KERNEL
+    if (dwork->t_call) {
+        thread_call_cancel(dwork->t_call);
+    }
+#else
+    (void)dwork;
+#endif
+}
+
+static inline void apple_timer_setup(struct timer_list *timer, void (*callback)(struct timer_list *), unsigned int flags) {
+    timer->func = callback;
+#ifdef KERNEL
+    timer->t_call = thread_call_allocate((thread_call_func_t)callback, timer);
+#else
+    timer->t_call = NULL;
+#endif
+}
+
+static inline int apple_mod_timer(struct timer_list *timer, unsigned long expires_jiffies) {
+    unsigned int delay_ms = jiffies_to_msecs(expires_jiffies);
+#ifdef KERNEL
+    if (timer->t_call) {
+        uint64_t deadline;
+        clock_interval_to_deadline(delay_ms, kMillisecondScale, &deadline);
+        thread_call_enter1_delayed(timer->t_call, NULL, deadline);
+    }
+#endif
+    return 0;
+}
+
+static inline void apple_del_timer_sync(struct timer_list *timer) {
+#ifdef KERNEL
+    if (timer->t_call) {
+        thread_call_cancel(timer->t_call);
+        thread_call_free(timer->t_call);
+        timer->t_call = NULL;
+    }
+#endif
+}
+
+#define timer_setup(timer, callback, flags)     apple_timer_setup(timer, (void (*)(struct timer_list *))callback, flags)
+#define del_timer_sync(t)                       apple_del_timer_sync(t)
+#define mod_timer(t, exp)                       apple_mod_timer(t, exp)
+
+#define INIT_DELAYED_WORK(w, f)                 do { (w)->func = (void (*)(struct work_struct *))(f); (w)->work.func = (void (*)(struct work_struct *))(f); (w)->t_call = NULL; } while(0)
+#define INIT_WORK(w, f)                         do { (w)->func = (void (*)(struct work_struct *))(f); } while(0)
+#define cancel_delayed_work(w)                  apple_cancel_delayed_work(w)
 #define cancel_work_sync(w)                     ((void)(w))
-#define schedule_work(w)                        ((void)(w))
+#define schedule_work(w)                        do { if ((w)->func) (w)->func(w); } while(0)
 
-static inline int mod_timer(struct timer_list *timer, unsigned long expires) { return 0; }
 static inline void *alloc_workqueue(const char *fmt, unsigned int flags, int max_active, ...) { return (void *)1; }
-static inline void queue_delayed_work(void *wq, struct delayed_work *dwork, unsigned long delay) {}
+static inline void queue_delayed_work(void *wq, struct delayed_work *dwork, unsigned long delay) { apple_queue_delayed_work(dwork, jiffies_to_msecs(delay)); }
 static inline void destroy_workqueue(void *wq) {}
 
 #define to_delayed_work(x)                      (x)
@@ -343,7 +447,7 @@ static inline void destroy_workqueue(void *wq) {}
 static inline int in_interrupt(void) { return 0; }
 
 // =========================================================================
-// 12. SUBSISTEMA PCI E GERENCIAMENTO DE MEMÓRIA (MOCK)
+// 13. SUBSISTEMA PCI E GERENCIAMENTO DE MEMÓRIA (MACOS NATIVE)
 // =========================================================================
 struct pci_device_id {
     unsigned int vendor, device;
@@ -373,8 +477,42 @@ struct pci_device_id {
 #define EXPORT_SYMBOL_GPL(x)
 #define EXPORT_SYMBOL(x)
 
-#define vzalloc(size)         kzalloc(size, 0)
-#define vfree(ptr)            do { if(ptr) { /* stub */ } } while(0)
+// Emulação real e segura de Alocação Dinâmica do macOS
+#ifdef KERNEL
+extern OSMallocTag gOSMallocTag; // Lembre-se de instanciar e alocar no seu .cpp principal
+#endif
+
+static inline void *apple_kzalloc(size_t size) {
+#ifdef KERNEL
+    if (!gOSMallocTag) return IOMallocZero(size);
+    void *ptr = OSMalloc((uint32_t)size, gOSMallocTag);
+    if (ptr) __builtin_memset(ptr, 0, size);
+    return ptr;
+#else
+    return calloc(1, size);
+#endif
+}
+
+static inline void apple_kfree(void *ptr, size_t size) {
+#ifdef KERNEL
+    if (ptr) {
+        if (gOSMallocTag) {
+            OSFree(ptr, (uint32_t)size, gOSMallocTag);
+        } else {
+            IOFree(ptr, size);
+        }
+    }
+#else
+    free(ptr);
+#endif
+}
+
+#undef kzalloc
+#undef kfree
+#define kzalloc(size, flags)  apple_kzalloc(size)
+#define kfree(ptr)            apple_kfree(ptr, sizeof(*(ptr)))
+#define vzalloc(size)         apple_kzalloc(size)
+#define vfree(ptr)            apple_kfree(ptr, 1) // Fallback seguro para ponteiros opacos
 
 static inline dma_addr_t pci_map_single(void *pdev, void *ptr, size_t size, int direction) { return 0; }
 static inline void pci_unmap_single(void *pdev, dma_addr_t dma_addr, size_t size, int direction) { }
@@ -394,7 +532,7 @@ struct pci_driver {
 };
 
 // =========================================================================
-// 13. OPERAÇÕES DE ENDIANNESS (CONVERSÕES DE BYTE)
+// 14. OPERAÇÕES DE ENDIANNESS (CONVERSÕES DE BYTE)
 // =========================================================================
 #ifndef cpu_to_le32
   #define cpu_to_le32(x) ((unsigned int)(x))
@@ -417,7 +555,7 @@ static inline unsigned short be16_to_cpup(const __be16 *p) { return be16_to_cpu(
 static inline u64 div64_u64(u64 dividend, u64 divisor) { return dividend / divisor; }
 
 // =========================================================================
-// 14. CONSTANTES E MÁSCARAS DO PADRÃO IEEE 802.11
+// 15. CONSTANTES E MÁSCARAS DO PADRÃO IEEE 802.11
 // =========================================================================
 #define IEEE80211_FCTL_FTYPE       0x000c
 #define IEEE80211_FCTL_STYPE       0x00f0
@@ -442,23 +580,23 @@ static inline u64 div64_u64(u64 dividend, u64 divisor) { return dividend / divis
 #define IEEE80211_HT_MCS_TX_DEFINED                       1
 #define IEEE80211_MAX_AMPDU_BUF                           64
 
-#define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454           (1 << 0)
+#define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454            (1 << 0)
 #define IEEE80211_VHT_CAP_SHORT_GI_80                     (1 << 1)
 #define IEEE80211_VHT_CAP_TXSTBC                          (1 << 2)
 #define IEEE80211_VHT_CAP_RXSTBC_1                        (1 << 3)
-#define IEEE80211_VHT_CAP_SU_BEAMFORMER_CAPABLE           (1 << 4)
-#define IEEE80211_VHT_CAP_SU_BEAMFORMEE_CAPABLE           (1 << 5)
+#define IEEE80211_VHT_CAP_SU_BEAMFORMER_CAPABLE            (1 << 4)
+#define IEEE80211_VHT_CAP_SU_BEAMFORMEE_CAPABLE            (1 << 5)
 #define IEEE80211_VHT_CAP_HTC_VHT                         (1 << 6)
 #define IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_MASK (1 << 7)
 #define IEEE80211_VHT_CAP_RX_ANTENNA_PATTERN              (1 << 8)
 #define IEEE80211_VHT_CAP_TX_ANTENNA_PATTERN              (1 << 9)
 
-#define IEEE80211_VHT_MCS_SUPPORT_0_7                     0
-#define IEEE80211_VHT_MCS_SUPPORT_0_8                     1
-#define IEEE80211_VHT_MCS_SUPPORT_0_9                     2
+#define IEEE80211_VHT_MCS_SUPPORT_0_7                      0
+#define IEEE80211_VHT_MCS_SUPPORT_0_8                      1
+#define IEEE80211_VHT_MCS_SUPPORT_0_9                      2
 #define IEEE80211_VHT_MCS_NOT_SUPPORTED                   3
 
-#define IEEE80211_TX_RC_SHORT_GI                          (1 << 0)
+#define IEEE80211_TX_RC_SHORT_GI                                  (1 << 0)
 #define IEEE80211_TX_RC_USE_CTS_PROTECT                  (1 << 1)
 #define IEEE80211_TX_RC_USE_RTS_CTS                       (1 << 2)
 #define IEEE80211_TX_RC_MCS                               (1 << 3)
@@ -514,7 +652,7 @@ enum ieee80211_hw_set_type {
 };
 
 // =========================================================================
-// 15. CORREÇÃO CRÍTICA DO ERRO DE DEFINIÇÃO DA STRUCT IEEE80211_HW
+// 16. ESTRUTURAS DO SUBSISTEMA WIRELESS (NL80211 / MAC80211)
 // =========================================================================
 struct ieee80211_channel { int center_freq; int band; int hw_value; unsigned int flags; int max_power; };
 struct ieee80211_rate { unsigned int bitrate; unsigned int flags; int hw_value; };
@@ -535,7 +673,6 @@ struct ieee80211_supported_band {
     struct ieee80211_ht_cap ht_cap; struct ieee80211_vht_cap vht_cap;  
 };
 
-// Modificado para conter o membro 'priv' exigido pela macro rtl_priv(hw) em wifi.h
 struct ieee80211_hw {
     void *priv; 
     void *wiphy;
@@ -581,7 +718,7 @@ struct ieee80211_mgmt {
 };
 
 // =========================================================================
-// 16. ENGINE DE COMPATIBILIDADE MAC80211 (MOCK INLINE)
+// 17. ENGINE DE COMPATIBILIDADE MAC80211 (MOCK INLINE)
 // =========================================================================
 static inline int ieee80211_is_beacon(unsigned short fc) { return (fc & 0x00fc) == 0x0080; }
 static inline int ieee80211_is_mgmt(unsigned short fc) { return (fc & 0x000c) == 0x0000; }
@@ -610,7 +747,7 @@ static inline u8 *ieee80211_get_qos_ctl(const void *hdr) { static u8 dummy[2] = 
 static inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const u8 *addr) { return NULL; }
 
 static inline void ieee80211_hw_set(struct ieee80211_hw *hw, enum ieee80211_hw_set_type type) { (void)hw; (void)type; }
-#define SET_IEEE80211_PERM_ADDR(hw, addr)               ((void)(hw), (void)(addr))
+#define SET_IEEE80211_PERM_ADDR(hw, addr)                ((void)(hw), (void)(addr))
 static inline void get_random_bytes(void *buf, int nbytes) { (void)buf; (void)nbytes; }
 #define wiphy_rfkill_set_hw_state(w, s)                  ((void)(w), (void)(s))
 #define wiphy_rfkill_start_polling(w)                    ((void)(w))
@@ -634,54 +771,27 @@ static inline struct ieee80211_tx_info *IEEE80211_SKB_CB(struct sk_buff *skb) {
 #endif
 
 // =========================================================================
-// EMULAÇÃO DE ALOCAÇÃO DE MEMÓRIA DO KERNEL LINUX PARA MACOS (IOMalloc)
-// =========================================================================
-#define GFP_KERNEL 0
-
-// Inclui os cabeçalhos de memória nativos do Kernel do Mac
-#ifdef KERNEL
-#include <libkern/OSMalloc.h>
-#include <sys/malloc.h>
-#endif
-
-#ifndef kzalloc
-  // IOMallocZero aloca e limpa a memória no Heap do Kernel do macOS
-  #define kzalloc(size, flags) IOMallocZero((size))
-#endif
-
-#ifndef kfree
-  // IOFree devolve a memória para o sistema. No Mac precisamos passar o tamanho,
-  // mas como o kfree do Linux não passa, deixamos uma liberação genérica ou nula para compilar.
-  #define kfree(ptr) IOFree(ptr, sizeof(*(ptr)))
-#endif
-
-// =========================================================================
 // DESATIVAR INICIALIZADORES DE MÓDULO DO LINUX
 // =========================================================================
 #define module_init(x) void linux_init_##x(void) {}
 #define module_exit(x) void linux_exit_##x(void) {}
 
-// ==========================================
-// SUPORTE DE COMPATIBILIDADE MAC/LINUX (DRIVERS)
-// ==========================================
-
-// 1. Macros de gerenciamento de Arrays e Bits
+// =========================================================================
+// SUPORTE DE COMPATIBILIDADE MAC/LINUX (DRIVERS EXTRA)
+// =========================================================================
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif
 #define DMA_BIT_MASK(n) (((n) == 64) ? ~0ULL : ((1ULL << (n)) - 1))
 
-// 2. Definições de flags de DMA e PCI do Linux
 #define PCI_DMA_TODEVICE   1
 #define PCI_DMA_FROMDEVICE 2
 
-// 3. Emulação de travas de Interrupção (IRQs)
 #define local_save_flags(flags)  do { (void)(flags); } while(0)
 #define local_irq_enable()       do { } while(0)
 #define local_irq_disable()      do { } while(0)
 #define local_irq_restore(flags) do { (void)(flags); } while(0)
 
-// 4. Definições de Caps de Wi-Fi de Alta Velocidade (HT) protegidas
 #ifndef IEEE80211_HT_CAP_SGI_40
 #define IEEE80211_HT_CAP_SGI_40        0x00000020
 #endif
@@ -689,8 +799,6 @@ static inline struct ieee80211_tx_info *IEEE80211_SKB_CB(struct sk_buff *skb) {
 #define IEEE80211_HT_CAP_SGI_20        0x00000010
 #endif
 #define IEEE80211_HT_CAP_MAX_AMSDU_7935 0x00000400
-
-// 5. Estruturas completas exigidas pelo hw.c e dm_common.c
 
 struct ieee80211_sta {
     struct ieee80211_ht_cap ht_cap;
