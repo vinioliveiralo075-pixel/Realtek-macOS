@@ -209,6 +209,7 @@ static inline int time_after(unsigned long a, unsigned long b) { return (long)(a
 // =========================================================================
 // 7. EMULAÇÃO COMPLETA DE SINCRO (WAIT FOR COMPLETION) NO MACOS
 // =========================================================================
+
 struct completion {
     unsigned int done;
     void *event_chan; 
@@ -230,7 +231,15 @@ static inline unsigned long apple_wait_for_completion_timeout(struct completion 
         return timeout_jiffies;
     }
 #ifdef KERNEL
-    int result = msleep(x->event_chan, NULL, PUSER, "rtl_wait", timeout_ms);
+    // 1. Criamos a estrutura que o Kernel do macOS espera receber
+    struct timespec ts;
+    
+    // 2. Convertemos os milissegundos em segundos e nanossegundos
+    ts.tv_sec = timeout_ms / 1000;
+    ts.tv_nsec = (timeout_ms % 1000) * 1000000;
+
+    // 3. Passamos o ponteiro (&ts) em vez do inteiro direto
+    int result = msleep(x->event_chan, NULL, PUSER, "rtl_wait", &ts);
     if (result == EWOULDBLOCK) {
         return 0; // Excedeu o tempo limite
     }
