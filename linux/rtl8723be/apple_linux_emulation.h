@@ -7,6 +7,7 @@
 #include <sys/time.h>
 #include <sys/errno.h>
 #include <sys/param.h> 
+#include <sys/systm.h>
 
 #ifdef KERNEL
 #include <libkern/OSMalloc.h>
