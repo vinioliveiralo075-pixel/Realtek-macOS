@@ -1382,6 +1382,8 @@ static __always_inline int crypto_arc4_crypt(struct crypto_arc4_ctx *ctx,
     } while(0)
 #endif
 
+/* Resolve o conflito com a definição da linha 1084 */
+#undef WARN_ON
 #define WARN_ON(x) ({ \
     int __r = !!(x); \
     __r; \
