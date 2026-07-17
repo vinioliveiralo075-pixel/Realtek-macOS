@@ -137,6 +137,40 @@ struct ieee80211_supported_band {
     int channels;
 };
 
+/* Estruturas do protocolo 802.11 e Filas de Transmissão */
+struct ieee80211_hdr {
+    u16 frame_control;
+    u16 duration_id;
+    u8 addr1[6];
+    u8 addr2[6];
+    u8 addr3[6];
+    u16 seq_ctrl;
+    u8 addr4[6];
+    u16 qos_ctrl;
+    u32 ht_ctrl;
+};
+
+struct ieee80211_tx_queue_params {
+    u8 aifs;
+    u16 cw_min;
+    u16 cw_max;
+    u16 txop_limit;
+};
+
+/* Estruturas de sincronismo e tasks do Linux */
+struct mutex {
+    void *apple_mutex_ptr;
+};
+
+struct tasklet_struct {
+    void (*func)(unsigned long);
+    unsigned long data;
+};
+
+struct urb {
+    void *context;
+};
+
 /* Estruturas de controle de conexões (Stubs) */
 struct ieee80211_sta {
     u8 mac_addr[6];
@@ -168,7 +202,7 @@ struct list_head {
 };
 
 #define LIST_HEAD_INIT(name) { &(name), &(name) }
-#define INIT_LIST_HEAD(ptr) do { (ptr)->next = (ptr); (ptr)->prev = (ptr); } while (0)
+#define INDIRECT_INIT_LIST_HEAD(ptr) do { (ptr)->next = (ptr); (ptr)->prev = (ptr); } while (0)
 
 /* Stubs de funções ieee80211 que o driver wifi.h requisita */
 static inline u8 *ieee80211_get_qos_ctl(void *hdr) {
@@ -199,7 +233,7 @@ static inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const u8 *mac_
 #define _SECTION_6_EMULATION_
 
 #define HZ 1000
-#define jiffies ((unsigned long)(node_page_alloc_count)) /* Exemplo de contador */
+#define jiffies ((unsigned long)(node_page_alloc_count)) 
 
 #define jiffies_to_msecs(x) ((unsigned int)(((unsigned long)(x) * 1000) / HZ))
 #define msecs_to_jiffies(x) ((unsigned long)(((unsigned long)(x) * HZ) / 1000))
@@ -209,11 +243,17 @@ static inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const u8 *mac_
 
 #define mdelay(ms) IOSleep(ms)
 #define udelay(us) { int i; for(i=0; i<us*10; i++) { asm volatile(""); } }
-#define msleep(ms) IOSleep(ms)
+
+static inline void linux_msleep(unsigned int ms) {
+    IOSleep(ms);
+}
 
 static inline void usleep_range(unsigned long min, unsigned long max) {
     IOSleep((unsigned int)(min / 1000));
 }
+
+/* Redireciona o msleep do driver para a nossa função segura */
+#define msleep(ms) linux_msleep(ms)
 
 #endif /* _SECTION_6_EMULATION_ */
 
@@ -222,8 +262,6 @@ static inline void usleep_range(unsigned long min, unsigned long max) {
  *******************************************************************************/
 #ifndef _SECTION_7_EMULATION_
 #define _SECTION_7_EMULATION_
-
-#include <sys/systm.h> /* Define msleep e wakeup nativos do Kernel macOS */
 
 struct completion {
     unsigned int done;
@@ -237,14 +275,17 @@ static inline void init_completion(struct completion *x) {
 
 static inline unsigned long wait_for_completion_timeout(struct completion *x, unsigned long timeout) {
     int timeout_ms = (int)jiffies_to_msecs(timeout);
+    int polled = 0;
+    
+    while (x->done == 0 && polled < timeout_ms) {
+        IOSleep(1); /* Loop de polling seguro para evitar conflito com o msleep do BSD */
+        polled++;
+    }
     
     if (x->done == 0) {
-        /* Chama o msleep nativo do BSD XNU */
-        int result = msleep(x->event_chan, NULL, PUSER, "rtl_wait", timeout_ms);
-        if (result == EWOULDBLOCK) {
-            return 0; /* Timeout estourou */
-        }
+        return 0; /* Estourou o tempo */
     }
+    
     if (x->done > 0) {
         x->done--;
     }
@@ -253,7 +294,6 @@ static inline unsigned long wait_for_completion_timeout(struct completion *x, un
 
 static inline void complete(struct completion *x) {
     x->done++;
-    wakeup(x->event_chan); /* Acorda as threads no canal correspondente */
 }
 
 #endif /* _SECTION_7_EMULATION_ */
