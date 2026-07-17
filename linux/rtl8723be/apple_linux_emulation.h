@@ -1068,6 +1068,7 @@ static __always_inline void writel(uint32_t val, volatile void *addr) {
 /*******************************************************************************
  * 19.6 LINUX KERNEL WARNING & LOGGING PIPELINE (WARN_ONCE, WARN_ON)
  *******************************************************************************/
+#ifndef WARN_ONCE
 #define WARN_ONCE(condition, format, ...) ({ \
     static bool __warned = false; \
     bool __ret = (condition); \
@@ -1077,7 +1078,9 @@ static __always_inline void writel(uint32_t val, volatile void *addr) {
     } \
     __ret; \
 })
+#endif
 
+#ifndef WARN_ON
 #define WARN_ON(condition) ({ \
     int __ret_warn = !!(condition); \
     if (__ret_warn) { \
@@ -1085,7 +1088,9 @@ static __always_inline void writel(uint32_t val, volatile void *addr) {
     } \
     __ret_warn; \
 })
+#endif
 
+#ifndef WARN
 #define WARN(condition, format, ...) ({ \
     int __ret_warn = !!(condition); \
     if (__ret_warn) { \
@@ -1093,6 +1098,7 @@ static __always_inline void writel(uint32_t val, volatile void *addr) {
     } \
     __ret_warn; \
 })
+#endif
 
 /*******************************************************************************
  * 20. DEVICE MODEL MATRICES & ABSTRACT DATA STRUCTURES
@@ -1224,17 +1230,14 @@ struct net_device {
     long unsigned int state;
 };
 
-/* CORREÇÃO: Define a estrutura real permitindo a macro hw->priv ler o contexto do driver */
 struct ieee80211_hw {
     void *priv;
 };
 
-/* CORREÇÃO: Mapeia o frame_control lido diretamente via rtl_get_hdr(skb) */
 struct ieee80211_hdr {
     uint16_t frame_control;
 };
 
-/* CORREÇÃO: Resolve o tamanho do array edca_param em wifi.h */
 struct ieee80211_tx_queue_params {
     unsigned int acm;
     unsigned int aifs;
@@ -1242,17 +1245,25 @@ struct ieee80211_tx_queue_params {
     unsigned int cw_max;
 };
 
-/* CORREÇÃO: Resolve o mecanismo de concorrência firmware_loading_complete */
 struct completion {
     unsigned int done;
     spinlock_t wait_lock;
 };
 
-/* STUBS E ENUMS PARA REDUZIR WARNINGS DE VISIBILIDADE NO CLANG */
 struct ieee80211_tx_info { int dummy; };
 struct ieee80211_rx_status { int dummy; };
 struct urb { int dummy; };
+
+/* CORREÇÃO: Estrutura base do seq_file e seus clones funcionais para o ecossistema Mac */
 struct seq_file { int dummy; };
+
+static __always_inline int seq_puts(struct seq_file *m, const char *s) {
+    return 0;
+}
+
+static __always_inline int seq_printf(struct seq_file *m, const char *fmt, ...) {
+    return 0;
+}
 
 enum nl80211_channel_type {
     NL80211_CHAN_NO_HT,
