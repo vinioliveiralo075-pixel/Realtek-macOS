@@ -18,38 +18,53 @@
 extern "C" {
 #endif
 
-// =========================================================================
-// 1. MACROS DE VERSIONAMENTO DO KERNEL LINUX & ATRIBUTOS COMPILADOR
-// =========================================================================
-#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
-#define LINUX_VERSION_CODE KERNEL_VERSION(4, 19, 0)
+/*******************************************************************************
+ * Seção 1: Cabeçalhos Básicos e Macros de Módulos do Linux
+ *******************************************************************************/
+#ifndef _SECTION_1_EMULATION_
+#define _SECTION_1_EMULATION_
 
-#ifndef __printf
-  #define __printf(a, b) __attribute__((format(printf, a, b)))
-#endif
+#include <sys/param.h>
+#include <sys/kernel.h>
+#include <libkern/libkern.h>
 
-#ifndef __packed
-  #define __packed __attribute__((packed))
-#endif
+/* Tipos primitivos do Linux mapeados para o ambiente do macOS */
+typedef unsigned char       u8;
+typedef unsigned short      u16;
+typedef unsigned int        u32;
+typedef unsigned long long  u64;
+typedef signed char         s8;
+typedef short               s16;
+typedef int                 s32;
+typedef long long           s64;
 
-#ifndef __aligned
-  #define __aligned(x) __attribute__((aligned(x)))
-#endif
+typedef u32 __le32;
+typedef u16 __le16;
+typedef u16 __be16;
 
-#define __iomem
+typedef unsigned int gfp_t;
+
+/* Atributos de seção e compilação do Linux */
 #define __init
 #define __exit
-#define __must_check
-#define __always_unused
-#define __maybe_unused
+#define __iomem
+#define __packed __attribute__((packed))
+#define __aligned(x) __attribute__((aligned(x)))
 
-// Macros de Otimização e Controle de Branch (Necessárias para o trx.c)
-#ifndef likely
-  #define likely(x)      __builtin_expect(!!(x), 1)
-#endif
-#ifndef unlikely
-  #define unlikely(x)    __builtin_expect(!!(x), 0)
-#endif
+/* Macros de metadados do módulo - ignoradas no macOS */
+#define MODULE_LICENSE(x)
+#define MODULE_AUTHOR(x)
+#define MODULE_DESCRIPTION(x)
+#define MODULE_VERSION(x)
+#define MODULE_PARM_DESC(x, y)
+#define module_param(name, type, perm)
+#define module_param_named(name, value, type, perm)
+
+/* Correção para os erros do rtl_btc.c: Stubs de inicialização do módulo */
+#define module_init(initfn) static inline void __init_##initfn(void) { (void)initfn; }
+#define module_exit(exitfn) static inline void __exit_##exitfn(void) { (void)exitfn; }
+
+#endif /* _SECTION_1_EMULATION_ */
 
 // =========================================================================
 // 2. MACROS DE MANIPULAÇÃO DE BITS e BYPASS XNU
