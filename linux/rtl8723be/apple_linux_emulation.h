@@ -130,12 +130,23 @@ enum nl80211_channel_type {
     NL80211_CHAN_HT40PLUS
 };
 
+enum ieee80211_smps_mode {
+    IEEE80211_SMPS_OFF,
+    IEEE80211_SMPS_STATIC,
+    IEEE80211_SMPS_DYNAMIC
+};
+
 #define NUM_NL80211_BANDS 2
 
 struct ieee80211_supported_band {
     int bitrates;
     int channels;
 };
+
+/* Stubs de estruturas regulatórias para evitar warnings de escopo */
+struct wiphy { int dummy; };
+struct regulatory_request { int dummy; };
+struct ieee80211_tx_info { int dummy; };
 
 /* Estruturas do protocolo 802.11 e Filas de Transmissão */
 struct ieee80211_hdr {
@@ -204,6 +215,17 @@ struct list_head {
 #define LIST_HEAD_INIT(name) { &(name), &(name) }
 #define INDIRECT_INIT_LIST_HEAD(ptr) do { (ptr)->next = (ptr); (ptr)->prev = (ptr); } while (0)
 
+#ifndef container_of
+#define container_of(ptr, type, member) \
+    ((type *)((char *)(ptr) - __builtin_offsetof(type, member)))
+#endif
+
+/* Macro essencial para varrer as listas do driver Realtek */
+#define list_for_each_entry(pos, head, member) \
+    for (pos = container_of((head)->next, typeof(*pos), member); \
+         &pos->member != (head); \
+         pos = container_of(pos->member.next, typeof(*pos), member))
+
 /* Stubs de funções ieee80211 que o driver wifi.h requisita */
 static inline u8 *ieee80211_get_qos_ctl(void *hdr) {
     static u8 dummy_qos[2] = {0, 0};
@@ -232,8 +254,23 @@ static inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const u8 *mac_
 #ifndef _SECTION_6_EMULATION_
 #define _SECTION_6_EMULATION_
 
+#include <stdint.h>
+
+/* Funções nativas do XNU macOS para obter tempo absoluto */
+extern uint64_t clock_get_absolute_time(void);
+extern void absolutetime_to_nanoseconds(uint64_t clock_time, uint64_t *nanoseconds);
+
 #define HZ 1000
-#define jiffies ((unsigned long)(node_page_alloc_count)) 
+
+/* Simulação dinâmica dos jiffies usando o tempo real do sistema macOS */
+static inline unsigned long apple_get_jiffies(void) {
+    uint64_t abstime = clock_get_absolute_time();
+    uint64_t nanos;
+    absolutetime_to_nanoseconds(abstime, &nanos);
+    return (unsigned long)(nanos / 1000000); /* Converte nanosegundos para milissegundos */
+}
+
+#define jiffies apple_get_jiffies()
 
 #define jiffies_to_msecs(x) ((unsigned int)(((unsigned long)(x) * 1000) / HZ))
 #define msecs_to_jiffies(x) ((unsigned long)(((unsigned long)(x) * HZ) / 1000))
@@ -271,6 +308,10 @@ struct completion {
 static inline void init_completion(struct completion *x) {
     x->done = 0;
     x->event_chan = (void *)x;
+}
+
+static inline void reinit_completion(struct completion *x) {
+    x->done = 0; /* Reinicia o sinal de sincronismo */
 }
 
 static inline unsigned long wait_for_completion_timeout(struct completion *x, unsigned long timeout) {
