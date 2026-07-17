@@ -921,93 +921,42 @@ static __always_inline void tasklet_disable(struct tasklet_struct *t)
 /*******************************************************************************
  * 19. MASSIVE SOCKET BUFFER (SK_BUFF) EMULATION PIPELINE
  *******************************************************************************/
-struct skb_frag_struct {
-    void *page;
-    u32 page_offset;
-    u32 size;
-};
-
-struct skb_shared_info {
-    u8 nr_frags;
-    u8 tx_flags;
-    u16 gso_size;
-    u16 gso_segs;
-    struct skb_frag_struct frags[16];
-};
-
 struct sk_buff {
-    struct sk_buff *next;
-    struct sk_buff *prev;
-    void *dev;
-    void *data;
-    unsigned int len;
-    unsigned int priority;
+    unsigned char *data;
     unsigned char *head;
-    unsigned char *data_ptr;
     unsigned char *tail;
     unsigned char *end;
+    unsigned int len;
     unsigned int data_len;
-    unsigned int truesize;
-    u16 protocol;
-    u16 queue_mapping;
-    u8 ip_summed;
-    __u32 mark;
+    uint16_t protocol;
+    unsigned char cb[48] __attribute__((aligned(8)));
 };
 
-struct sk_buff_head {
-    struct sk_buff *next;
-    struct sk_buff *prev;
-    u32 qlen;
-};
-
-static __always_inline void skb_queue_head_init(struct sk_buff_head *list)
-{
-    list->next = (struct sk_buff *)list;
-    list->prev = (struct sk_buff *)list;
-    list->qlen = 0;
-}
-
-static __always_inline int skb_queue_len(const struct sk_buff_head *list)
-{
-    return (int)list->qlen;
-}
-
-struct sk_buff *dev_alloc_skb(unsigned int length);
 static __always_inline struct sk_buff *dev_alloc_skb(unsigned int length)
 {
-    struct sk_buff *skb = (struct sk_buff *)IOMalloc(sizeof(struct sk_buff));
-    if (!skb) {
-        return NULL;
-    }
-    void *payload = IOMalloc(length + 64);
-    if (!payload) {
-        IOFree(skb, sizeof(struct sk_buff));
-        return NULL;
-    }
-    skb->head = (unsigned char *)payload;
-    skb->data = (unsigned char *)payload + 32;
-    skb->tail = (unsigned char *)payload + 32;
-    skb->end = (unsigned char *)payload + length + 64;
+    struct sk_buff *skb = (struct sk_buff *)IOMalloc(sizeof(struct sk_buff) + length);
+    if (!skb) return NULL;
+    skb->head = (unsigned char *)(skb + 1);
+    skb->data = skb->head;
+    skb->tail = skb->head;
+    skb->end = skb->head + length;
     skb->len = 0;
-    skb->truesize = length + 64 + sizeof(struct sk_buff);
-    skb->mark = 0;
+    skb->data_len = 0;
     return skb;
 }
 
-void kfree_skb(struct sk_buff *skb);
 static __always_inline void kfree_skb(struct sk_buff *skb)
 {
     if (skb) {
-        if (skb->head) {
-            vm_size_t target_size = (vm_size_t)(skb->end - skb->head);
-            IOFree(skb->head, target_size);
-        }
-        IOFree(skb, sizeof(struct sk_buff));
+        IOFree(skb, sizeof(struct sk_buff) + (skb->end - skb->head));
     }
 }
-#define dev_kfree_skb(skb) kfree_skb(skb)
-#define dev_kfree_skb_any(skb) kfree_skb(skb)
-#define dev_kfree_skb_irq(skb) kfree_skb(skb)
+
+static __always_inline void skb_reserve(struct sk_buff *skb, int len)
+{
+    skb->data += len;
+    skb->tail += len;
+}
 
 static __always_inline unsigned char *skb_put(struct sk_buff *skb, unsigned int len)
 {
@@ -1017,47 +966,24 @@ static __always_inline unsigned char *skb_put(struct sk_buff *skb, unsigned int 
     return tmp;
 }
 
-static __always_inline void skb_put_data(struct sk_buff *skb, const void *data, unsigned int len)
-{
-    memcpy(skb_put(skb, len), data, len);
-}
-
 static __always_inline unsigned char *skb_push(struct sk_buff *skb, unsigned int len)
 {
-    skb->data = (void *)((char *)skb->data - len);
+    skb->data -= len;
     skb->len += len;
-    return (unsigned char *)skb->data;
+    return skb->data;
 }
 
 static __always_inline unsigned char *skb_pull(struct sk_buff *skb, unsigned int len)
 {
-    skb->data = (void *)((char *)skb->data + len);
-    skb->len -= len;
-    return (unsigned char *)skb->data;
-}
-
-static __always_inline void skb_reserve(struct sk_buff *skb, int len)
-{
     skb->data += len;
-    skb->tail += len;
-}
-
-static __always_inline unsigned int skb_headroom(const struct sk_buff *skb)
-{
-    return (unsigned int)((unsigned char *)skb->data - skb->head);
-}
-
-static __always_inline unsigned int skb_tailroom(const struct sk_buff *skb)
-{
-    return (unsigned int)(skb->end - (unsigned char *)skb->tail);
+    skb->len -= len;
+    return skb->data;
 }
 
 static __always_inline void skb_trim(struct sk_buff *skb, unsigned int len)
 {
-    if (skb->len > len) {
-        skb->len = len;
-        skb->tail = (unsigned char *)skb->data + len;
-    }
+    skb->len = len;
+    skb->tail = skb->data + len;
 }
 
 /*******************************************************************************
@@ -1188,6 +1114,43 @@ struct net_device {
     unsigned char dev_addr[6];
     unsigned char perm_addr[6];
     long unsigned int state;
+};
+
+/* CORREÇÃO: Define a estrutura real permitindo a macro hw->priv ler o contexto do driver */
+struct ieee80211_hw {
+    void *priv;
+};
+
+/* CORREÇÃO: Mapeia o frame_control lido diretamente via rtl_get_hdr(skb) */
+struct ieee80211_hdr {
+    uint16_t frame_control;
+};
+
+/* CORREÇÃO: Resolve o tamanho do array edca_param em wifi.h */
+struct ieee80211_tx_queue_params {
+    unsigned int acm;
+    unsigned int aifs;
+    unsigned int cw_min;
+    unsigned int cw_max;
+};
+
+/* CORREÇÃO: Resolve o mecanismo de concorrência firmware_loading_complete */
+struct completion {
+    unsigned int done;
+    spinlock_t wait_lock;
+};
+
+/* STUBS E ENUMS PARA REDUZIR WARNINGS DE VISIBILIDADE NO CLANG */
+struct ieee80211_tx_info { int dummy; };
+struct ieee80211_rx_status { int dummy; };
+struct urb { int dummy; };
+struct seq_file { int dummy; };
+
+enum nl80211_channel_type {
+    NL80211_CHAN_NO_HT,
+    NL80211_CHAN_HT20,
+    NL80211_CHAN_HT40MINUS,
+    NL80211_CHAN_HT40PLUS
 };
 
 struct ieee80211_sta {
