@@ -932,6 +932,14 @@ struct sk_buff {
     unsigned char cb[48] __attribute__((aligned(8)));
 };
 
+/* CORREÇÃO: Define a cabeça da fila de SKBs para evitar "incomplete element type" no array do wifi.h */
+struct sk_buff_head {
+    struct sk_buff *next;
+    struct sk_buff *prev;
+    uint32_t qlen;
+    spinlock_t lock;
+};
+
 static __always_inline struct sk_buff *dev_alloc_skb(unsigned int length)
 {
     struct sk_buff *skb = (struct sk_buff *)IOMalloc(sizeof(struct sk_buff) + length);
@@ -948,7 +956,8 @@ static __always_inline struct sk_buff *dev_alloc_skb(unsigned int length)
 static __always_inline void kfree_skb(struct sk_buff *skb)
 {
     if (skb) {
-        IOFree(skb, sizeof(struct sk_buff) + (skb->end - skb->head));
+        /* CORREÇÃO: O cast para (size_t) elimina o warning de conversão implícita de signedness */
+        IOFree(skb, sizeof(struct sk_buff) + (size_t)(skb->end - skb->head));
     }
 }
 
