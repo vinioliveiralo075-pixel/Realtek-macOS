@@ -728,4 +728,32 @@ static inline u64 div64_u64(u64 dividend, u64 divisor) {
 }
 #endif
 
+// =========================================================================
+// DEFINIÇÕES DE DMA E PCI (FALTANDO EM HW.C)
+// =========================================================================
+#define PCI_DMA_BIDIRECTIONAL  0
+#define PCI_DMA_TODEVICE       1
+#define PCI_DMA_FROMDEVICE     2
+#define PCI_DMA_NONE           3
+
+#ifndef DMA_BIT_MASK
+  #define DMA_BIT_MASK(n) (((n) == 64) ? ~0ULL : ((1ULL << (n)) - 1))
+#endif
+
+// =========================================================================
+// MACROS UTILITÁRIAS DO LINUX
+// =========================================================================
+#ifndef ARRAY_SIZE
+  #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+#endif
+
+// =========================================================================
+// EMULAÇÃO DE INTERRUPÇÕES LOCAIS (DUMMY STUBS PARA XNU)
+// =========================================================================
+/* No macOS não usamos cli/sti direto na linha do driver. 
+ * Definimos como no-op/stubs seguros para compilação. */
+#define local_save_flags(flags)     do { (flags) = 0; } while(0)
+#define local_irq_enable()          do { } while(0)
+#define local_irq_restore(flags)    do { (void)(flags); } while(0)
+
 #endif /* APPLE_LINUX_EMULATION_H */
