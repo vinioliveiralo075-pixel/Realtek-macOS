@@ -1066,6 +1066,35 @@ static __always_inline void writel(uint32_t val, volatile void *addr) {
 }
 
 /*******************************************************************************
+ * 19.6 LINUX KERNEL WARNING & LOGGING PIPELINE (WARN_ONCE, WARN_ON)
+ *******************************************************************************/
+#define WARN_ONCE(condition, format, ...) ({ \
+    static bool __warned = false; \
+    bool __ret = (condition); \
+    if (__ret && !__warned) { \
+        __warned = true; \
+        printf("RTL8723BE [WARN]: " format, ##__VA_ARGS__); \
+    } \
+    __ret; \
+})
+
+#define WARN_ON(condition) ({ \
+    int __ret_warn = !!(condition); \
+    if (__ret_warn) { \
+        printf("RTL8723BE [WARN_ON]: %s at %s:%d\n", #condition, __FILE__, __LINE__); \
+    } \
+    __ret_warn; \
+})
+
+#define WARN(condition, format, ...) ({ \
+    int __ret_warn = !!(condition); \
+    if (__ret_warn) { \
+        printf("RTL8723BE [WARN]: " format, ##__VA_ARGS__); \
+    } \
+    __ret_warn; \
+})
+
+/*******************************************************************************
  * 20. DEVICE MODEL MATRICES & ABSTRACT DATA STRUCTURES
  *******************************************************************************/
 struct device {
