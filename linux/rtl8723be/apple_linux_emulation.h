@@ -103,134 +103,84 @@ typedef struct { volatile int counter; } atomic_t;
   #define false 0
 #endif
 
-// =========================================================================
-// 4. CORREÇÃO DE INCOMPLETE TYPES E ESTRUTURAS BÁSICAS
-// =========================================================================
+/*******************************************************************************
+ * Seção 4: Correção de Incomplete Types e Estruturas Básicas
+ *******************************************************************************/
+#ifndef _SECTION_4_EMULATION_
+#define _SECTION_4_EMULATION_
+
+#include <sys/queue.h>
+
+/* Definições de enums e bandas do subsistema nl80211/ieee80211 */
+enum nl80211_iftype {
+    NL80211_IFTYPE_UNSPECIFIED,
+    NL80211_IFTYPE_ADHOC,
+    NL80211_IFTYPE_STATION,
+    NL80211_IFTYPE_AP,
+    NL80211_IFTYPE_MESH_POINT,
+    NL80211_IFTYPE_P2P_CLIENT,
+    NL80211_IFTYPE_P2P_GO,
+    NL80211_IFTYPE_MONITOR
+};
+
+enum nl80211_channel_type {
+    NL80211_CHAN_NO_HT,
+    NL80211_CHAN_HT20,
+    NL80211_CHAN_HT40MINUS,
+    NL80211_CHAN_HT40PLUS
+};
+
+#define NUM_NL80211_BANDS 2
+
+struct ieee80211_supported_band {
+    int bitrates;
+    int channels;
+};
+
+/* Estruturas de controle de conexões (Stubs) */
+struct ieee80211_sta {
+    u8 mac_addr[6];
+    void *driver_priv;
+};
+
+struct wireless_dev {
+    int ifindex;
+};
+
+/* Estrutura principal do Hardware Wi-Fi emulado */
+struct ieee80211_hw {
+    void *priv; /* Guardará o ponteiro rtl_priv do driver */
+    void *wiphy;
+    u8 mac_addr[6];
+    enum nl80211_iftype opmode;
+    struct ieee80211_supported_band bands[NUM_NL80211_BANDS];
+};
+
+struct ieee80211_rx_status {
+    u16 qual;
+    u8 signal;
+    u8 noise;
+};
+
+/* Estrutura de Listas do Linux emuladas via BSD <sys/queue.h> */
 struct list_head {
     struct list_head *next, *prev;
 };
 
-#ifndef container_of
-  #define container_of(ptr, type, member) \
-      ((type *)((char *)(ptr) - offsetof(type, member)))
-#endif
+#define LIST_HEAD_INIT(name) { &(name), &(name) }
+#define INIT_LIST_HEAD(ptr) do { (ptr)->next = (ptr); (ptr)->prev = (ptr); } while (0)
 
-#define list_entry(ptr, type, member) \
-    container_of(ptr, type, member)
+/* Stubs de funções ieee80211 que o driver wifi.h requisita */
+static inline u8 *ieee80211_get_qos_ctl(void *hdr) {
+    static u8 dummy_qos[2] = {0, 0};
+    return dummy_qos;
+}
 
-#define list_first_entry(ptr, type, member) \
-    list_entry((ptr)->next, type, member)
+static inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const u8 *mac_addr) {
+    return NULL;
+}
 
-#define list_next_entry(pos, member) \
-    list_entry((pos)->member.next, typeof(*(pos)), member)
-
-#define list_for_each_entry(pos, head, member)				\
-    for (pos = list_first_entry(head, typeof(*pos), member);	\
-         &pos->member != (head);					\
-         pos = list_next_entry(pos, member))
-
-struct mutex {
-    void *owner;
-    int locked;
-};
-
-struct tasklet_struct {
-    struct tasklet_struct *next;
-    unsigned long state;
-    atomic_t count;
-    void (*func)(unsigned long);
-    unsigned long data;
-};
-
-struct ieee80211_tx_queue_params {
-    int queue_id;
-    int aifs;
-    int cw_min;
-    int cw_max;
-    int txop_limit;
-};
-
-#ifndef RTL_MAC80211_NUM_QUEUE
-  #define RTL_MAC80211_NUM_QUEUE 4
-#endif
-
-#ifndef NUM_NL80211_BANDS
-  #define NUM_NL80211_BANDS 2
-#endif
-
-struct ieee80211_hdr {
-    u16 frame_control;
-    u16 duration_id;
-    u8 addr1[6];
-    u8 addr2[6];
-    u8 addr3[6];
-    u16 seq_ctrl;
-} __packed;
-
-// Estruturas de rede e canal para suporte ao trx.c
-struct ieee80211_chan {
-    u32 center_freq;
-    u8 band;
-};
-
-struct ieee80211_chandef {
-    struct ieee80211_chan *chan;
-};
-
-struct ieee80211_hw_conf {
-    struct ieee80211_chandef chandef;
-};
-
-struct ieee80211_hw {
-    struct ieee80211_hw_conf conf;
-};
-
-struct ieee80211_key_conf {
-    int cipher;
-};
-
-struct ieee80211_tx_info_control {
-    struct ieee80211_key_conf *hw_key;
-};
-
-struct ieee80211_tx_info {
-    struct ieee80211_tx_info_control control;
-};
-
-struct ieee80211_ht_cap {
-    u8 ampdu_density;
-};
-
-struct ieee80211_sta_info {
-    struct ieee80211_ht_cap ht_cap;
-};
-
-// Estrutura de Rx Status corrigida com os campos exigidos por trx.c
-struct ieee80211_rx_status {
-    u16 flags;
-    s8 signal;
-    u8 rate_idx;
-    u32 freq;
-    u8 band;
-    u64 mactime;
-    u8 bw;
-    u8 encoding;
-};
-
-#define RX_FLAG_FAILED_FCS_CRC   (1 << 0)
-#define RX_FLAG_MACTIME_START    (1 << 1)
-#define RX_FLAG_DECRYPTED        (1 << 2)
-
-#define RATE_INFO_BW_40          1
-#define RX_ENC_HT                2
-
-enum {
-    WLAN_CIPHER_SUITE_NONE,
-    WLAN_CIPHER_SUITE_WEP40,
-    WLAN_CIPHER_SUITE_TKIP,
-    WLAN_CIPHER_SUITE_CCMP,
-    WLAN_CIPHER_SUITE_WEP104
-};
+#endif /* _SECTION_4_EMULATION_ */
 
 // =========================================================================
 // 5. OPERAÇÕES DE I/O (MMIO - MEMORY MAPPED I/O)
@@ -242,82 +192,71 @@ enum {
 #define writew(val, addr)  (*(volatile u16 *)(addr) = (val))
 #define writel(val, addr)  (*(volatile u32 *)(addr) = (val))
 
-// =========================================================================
-// 6. TIMING, JIFFIES, TIMERS E DELAYS (EMULAÇÃO MACOS)
-// =========================================================================
-#ifndef HZ
-  #define HZ 100
-#endif
-#ifndef hz
-  #define hz HZ
-#endif
+/*******************************************************************************
+ * Seção 6: Timing, Jiffies, Timers e Delays (Emulação macOS)
+ *******************************************************************************/
+#ifndef _SECTION_6_EMULATION_
+#define _SECTION_6_EMULATION_
 
-#define MSEC_PER_SEC 1000
-#define jiffies 0UL
+#define HZ 1000
+#define jiffies ((unsigned long)(node_page_alloc_count)) /* Exemplo de contador */
 
-#define mdelay(x)          IODelay((unsigned int)((x) * 1000))
-#define udelay(x)          IODelay((unsigned int)(x))
+#define jiffies_to_msecs(x) ((unsigned int)(((unsigned long)(x) * 1000) / HZ))
+#define msecs_to_jiffies(x) ((unsigned long)(((unsigned long)(x) * HZ) / 1000))
 
-static inline void usleep_range(unsigned long min, unsigned long max) { 
-    IODelay((unsigned int)min); 
+/* Correção de filas para bater com o wifi.h */
+#define RTL_MAC80211_NUM_QUEUE 5
+
+#define mdelay(ms) IOSleep(ms)
+#define udelay(us) { int i; for(i=0; i<us*10; i++) { asm volatile(""); } }
+#define msleep(ms) IOSleep(ms)
+
+static inline void usleep_range(unsigned long min, unsigned long max) {
+    IOSleep((unsigned int)(min / 1000));
 }
 
-#ifndef jiffies_to_msecs
-  #define jiffies_to_msecs(x) ((unsigned int)((x) * 1000 / hz))
-#endif
-#ifndef msecs_to_jiffies
-  #define msecs_to_jiffies(x) ((unsigned long)((x) * hz / 1000))
-#endif
+#endif /* _SECTION_6_EMULATION_ */
 
-static inline int time_before(unsigned long a, unsigned long b) { return (long)(b - a) > 0; }
-static inline int time_after(unsigned long a, unsigned long b) { return (long)(a - b) > 0; }
+/*******************************************************************************
+ * Seção 7: Emulação Completa de Sincro (Wait for Completion) no macOS
+ *******************************************************************************/
+#ifndef _SECTION_7_EMULATION_
+#define _SECTION_7_EMULATION_
 
-// =========================================================================
-// 7. EMULAÇÃO COMPLETA DE SINCRO (WAIT FOR COMPLETION) NO MACOS
-// =========================================================================
+#include <sys/systm.h> /* Define msleep e wakeup nativos do Kernel macOS */
+
 struct completion {
     unsigned int done;
-    void *event_chan; 
+    void *event_chan;
 };
 
-static inline void apple_init_completion(struct completion *x) {
+static inline void init_completion(struct completion *x) {
     x->done = 0;
     x->event_chan = (void *)x;
 }
 
-static inline void apple_reinit_completion(struct completion *x) {
-    x->done = 0;
-}
-
-static inline unsigned long apple_wait_for_completion_timeout(struct completion *x, unsigned long timeout_jiffies) {
-    int timeout_ms = jiffies_to_msecs(timeout_jiffies);
+static inline unsigned long wait_for_completion_timeout(struct completion *x, unsigned long timeout) {
+    int timeout_ms = (int)jiffies_to_msecs(timeout);
+    
+    if (x->done == 0) {
+        /* Chama o msleep nativo do BSD XNU */
+        int result = msleep(x->event_chan, NULL, PUSER, "rtl_wait", timeout_ms);
+        if (result == EWOULDBLOCK) {
+            return 0; /* Timeout estourou */
+        }
+    }
     if (x->done > 0) {
         x->done--;
-        return timeout_jiffies;
     }
-#ifdef KERNEL
-    int result = msleep(x->event_chan, NULL, PUSER, "rtl_wait", timeout_ms);
-    if (result == EWOULDBLOCK) {
-        return 0; // Excedeu o tempo limite
-    }
-#else
-    IODelay(timeout_ms * 1000);
-#endif
-    if (x->done > 0) x->done--;
-    return 1; // Sincronizado com sucesso
+    return 1; /* Sucesso */
 }
 
-static inline void apple_complete(struct completion *x) {
+static inline void complete(struct completion *x) {
     x->done++;
-#ifdef KERNEL
-    wakeup(x->event_chan);
-#endif
+    wakeup(x->event_chan); /* Acorda as threads no canal correspondente */
 }
 
-#define init_completion(x)                      apple_init_completion(x)
-#define reinit_completion(x)                    apple_reinit_completion(x)
-#define wait_for_completion_timeout(x, timeout) apple_wait_for_completion_timeout(x, timeout)
-#define complete(x)                             apple_complete(x)
+#endif /* _SECTION_7_EMULATION_ */
 
 // =========================================================================
 // 8. LOCKS, EXCLUSÃO MÚTUA E ATOMICIDADE
