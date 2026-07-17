@@ -28,6 +28,15 @@ extern "C" {
 #include <sys/kernel.h>
 #include <libkern/libkern.h>
 
+/* Macros de versão do Kernel Linux exigidas pelo wifi.h */
+#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
+#define LINUX_VERSION_CODE KERNEL_VERSION(5, 4, 0) /* Versão base simulada */
+
+/* Macro de formatação de strings do compilador (usada no debug.h) */
+#ifndef __printf
+#define __printf(a, b) __attribute__((format(printf, a, b)))
+#endif
+
 /* Tipos primitivos do Linux mapeados para o ambiente do macOS */
 typedef unsigned char       u8;
 typedef unsigned short      u16;
@@ -59,6 +68,7 @@ typedef unsigned int gfp_t;
 #define MODULE_PARM_DESC(x, y)
 #define module_param(name, type, perm)
 #define module_param_named(name, value, type, perm)
+#define MODULE_FIRMWARE(name)
 
 /* Correção para os erros do rtl_btc.c: Stubs de inicialização do módulo */
 #define module_init(initfn) static inline void __init_##initfn(void) { (void)initfn; }
@@ -88,27 +98,14 @@ typedef unsigned int gfp_t;
 // =========================================================================
 // 3. TIPOS BÁSICOS DO KERNEL LINUX
 // =========================================================================
-typedef unsigned char        u8;
-typedef unsigned short       u16;
-typedef unsigned int         u32;
-typedef unsigned long long   u64;
-
-typedef signed char          s8;
-typedef signed short         s16;
-typedef signed int           s32;
-typedef signed long long     s64;
-
-typedef unsigned short       __le16;
-typedef unsigned int         __le32;
+/* Removidas definições duplicadas redundantes para evitar avisos do compilador */
 typedef unsigned long long   __le64;
-typedef unsigned short       __be16;
 typedef unsigned int         __be32;
 typedef unsigned long long   __be64;
 
 typedef long long            time64_t;
 typedef unsigned long        dma_addr_t;
 typedef unsigned long        kernel_ulong_t;
-typedef unsigned int         gfp_t;
 
 typedef struct { volatile int counter; } atomic_t;
 
@@ -574,12 +571,6 @@ struct pci_device_id {
 #define KBUILD_MODNAME        "rtl8723be"
 
 #define MODULE_DEVICE_TABLE(type, name)
-#define MODULE_AUTHOR(name)
-#define MODULE_LICENSE(name)
-#define MODULE_DESCRIPTION(name)
-#define MODULE_FIRMWARE(name)
-#define module_param_named(name, value, type, perm)
-#define MODULE_PARM_DESC(name, desc)
 #define module_pci_driver(driver)
 #define EXPORT_SYMBOL_GPL(x)
 #define EXPORT_SYMBOL(x)
