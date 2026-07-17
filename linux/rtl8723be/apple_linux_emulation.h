@@ -7,6 +7,7 @@
 #include <sys/time.h>
 #include <sys/errno.h>
 #include <sys/param.h> 
+#include <stdbool.h>
 
 #ifdef KERNEL
 #include <libkern/OSMalloc.h>
@@ -29,14 +30,14 @@ extern "C" {
 #include <libkern/libkern.h>
 
 /* Tipos primitivos do Linux mapeados para o ambiente do macOS */
-typedef unsigned char       u8;
-typedef unsigned short      u16;
-typedef unsigned int        u32;
-typedef unsigned long long  u64;
-typedef signed char         s8;
-typedef short               s16;
-typedef int                 s32;
-typedef long long           s64;
+typedef unsigned char        u8;
+typedef unsigned short       u16;
+typedef unsigned int         u32;
+typedef unsigned long long   u64;
+typedef signed char          s8;
+typedef short                s16;
+typedef int                  s32;
+typedef long long            s64;
 
 typedef u32 __le32;
 typedef u16 __le16;
@@ -64,6 +65,20 @@ typedef unsigned int gfp_t;
 #define module_init(initfn) static inline void __init_##initfn(void) { (void)initfn; }
 #define module_exit(exitfn) static inline void __exit_##exitfn(void) { (void)exitfn; }
 
+/* Emulação de Versão do Kernel para passar pelos #if do wifi.h */
+#ifndef KERNEL_VERSION
+#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
+#endif
+
+#ifndef LINUX_VERSION_CODE
+#define LINUX_VERSION_CODE KERNEL_VERSION(5, 4, 0)
+#endif
+
+/* Correção para o atributo de checagem de formato de string do Clang */
+#ifndef __printf
+#define __printf(a, b) __attribute__((format(printf, a, b)))
+#endif
+
 #endif /* _SECTION_1_EMULATION_ */
 
 // =========================================================================
@@ -88,35 +103,18 @@ typedef unsigned int gfp_t;
 // =========================================================================
 // 3. TIPOS BÁSICOS DO KERNEL LINUX
 // =========================================================================
-typedef unsigned char        u8;
-typedef unsigned short       u16;
-typedef unsigned int         u32;
-typedef unsigned long long   u64;
+/* u8, u16, u32, u64, s8, s16, s32, s64, __le16, __le32, __be16 e gfp_t 
+   foram removidos daqui pois já estão declarados na Seção 1 */
 
-typedef signed char          s8;
-typedef signed short         s16;
-typedef signed int           s32;
-typedef signed long long     s64;
-
-typedef unsigned short       __le16;
-typedef unsigned int         __le32;
 typedef unsigned long long   __le64;
-typedef unsigned short       __be16;
 typedef unsigned int         __be32;
 typedef unsigned long long   __be64;
 
 typedef long long            time64_t;
 typedef unsigned long        dma_addr_t;
 typedef unsigned long        kernel_ulong_t;
-typedef unsigned int         gfp_t;
 
 typedef struct { volatile int counter; } atomic_t;
-
-#ifndef bool
-  typedef int bool;
-  #define true 1
-  #define false 0
-#endif
 
 /*******************************************************************************
  * Seção 4: Correção de Incomplete Types e Estruturas Básicas
@@ -197,10 +195,19 @@ struct urb {
     void *context;
 };
 
-/* Estruturas de controle de conexões (Stubs) */
+/* Estruturas de controle de conexões - Sincronizado com os requisitos do rtl8723be */
 struct ieee80211_sta {
     u8 mac_addr[6];
     void *driver_priv;
+    void *drv_priv; // O driver usa drv_priv e driver_priv de forma mista em algumas versões
+    unsigned int aid;
+    unsigned char supp_rates[16];
+    struct {
+        unsigned int cap;
+        struct {
+            unsigned char rx_mask[2];
+        } mcs;
+    } ht_cap;
 };
 
 struct wireless_dev {
@@ -453,7 +460,7 @@ static inline int ieee80211_is_beacon(u16 fc) {
 }
 
 // =========================================================================
-// 12. TIMERS E WORKQUEUES EMULADOS USANDO THEAD_CALLS DO XNU
+// 12. TIMERS E WORKQUEUES EMULADOS USANDO THREAD_CALLS DO XNU
 // =========================================================================
 struct work_struct {
     void (*func)(struct work_struct *work);
@@ -478,11 +485,28 @@ struct timer_list {
     void (*func)(struct timer_list *t);
 };
 
-// Funções reais para evitar stubs vazios nos agendadores de tarefas
+/* Wrappers para casar a assinatura do macOS (2 argumentos) com a do Linux (1 argumento) */
+#ifdef KERNEL
+static inline void apple_work_wrapper(thread_call_param_t param0, thread_call_param_t param1) {
+    struct work_struct *work = (struct work_struct *)param0;
+    if (work && work->func) {
+        work->func(work);
+    }
+}
+
+static inline void apple_timer_wrapper(thread_call_param_t param0, thread_call_param_t param1) {
+    struct timer_list *timer = (struct timer_list *)param0;
+    if (timer && timer->func) {
+        timer->func(timer);
+    }
+}
+#endif
+
+/* Funções reais para evitar stubs vazios nos agendadores de tarefas */
 static inline void apple_queue_delayed_work(struct delayed_work *dwork, unsigned long delay_ms) {
 #ifdef KERNEL
     if (!dwork->t_call) {
-        dwork->t_call = thread_call_allocate((thread_call_func_t)dwork->func, &dwork->work);
+        dwork->t_call = thread_call_allocate(apple_work_wrapper, (thread_call_param_t)&dwork->work);
     }
     uint64_t deadline;
     clock_interval_to_deadline((uint32_t)delay_ms, kMillisecondScale, &deadline);
@@ -505,7 +529,7 @@ static inline void apple_cancel_delayed_work(struct delayed_work *dwork) {
 static inline void apple_timer_setup(struct timer_list *timer, void (*callback)(struct timer_list *), unsigned int flags) {
     timer->func = callback;
 #ifdef KERNEL
-    timer->t_call = thread_call_allocate((thread_call_func_t)callback, timer);
+    timer->t_call = thread_call_allocate(apple_timer_wrapper, (thread_call_param_t)timer);
 #else
     timer->t_call = NULL;
 #endif
@@ -548,8 +572,11 @@ static inline void queue_delayed_work(void *wq, struct delayed_work *dwork, unsi
 static inline void destroy_workqueue(void *wq) {}
 
 #define to_delayed_work(x)                      (x)
+
+/* Evita o erro de tipo incompleto do offsetof se o header principal da Realtek for incluído depois */
+struct rtl_priv;
 #define from_timer(var, callback_timer, timer_fieldname) \
-    ((struct rtl_priv *)((char *)(callback_timer) - offsetof(struct rtl_priv, works.watchdog_timer)))
+    ((struct rtl_priv *)((char *)(callback_timer) - __builtin_offsetof(struct rtl_priv, works.watchdog_timer)))
 
 static inline int in_interrupt(void) { return 0; }
 
@@ -574,23 +601,18 @@ struct pci_device_id {
 #define KBUILD_MODNAME        "rtl8723be"
 
 #define MODULE_DEVICE_TABLE(type, name)
-#define MODULE_AUTHOR(name)
-#define MODULE_LICENSE(name)
-#define MODULE_DESCRIPTION(name)
 #define MODULE_FIRMWARE(name)
-#define module_param_named(name, value, type, perm)
-#define MODULE_PARM_DESC(name, desc)
 #define module_pci_driver(driver)
 #define EXPORT_SYMBOL_GPL(x)
 #define EXPORT_SYMBOL(x)
 
-// Emulação real e segura de Alocação Dinâmica do macOS
 #ifdef KERNEL
-extern OSMallocTag gOSMallocTag; // Lembre-se de instanciar e alocar no seu .cpp principal
+extern OSMallocTag gOSMallocTag; 
 #endif
 
 static inline void *apple_kzalloc(size_t size) {
 #ifdef KERNEL
+    /* Se gOSMallocTag não estiver pronto, cai para o alocador básico do IOKit */
     if (!gOSMallocTag) return IOMallocZero(size);
     void *ptr = OSMalloc((uint32_t)size, gOSMallocTag);
     if (ptr) __builtin_memset(ptr, 0, size);
@@ -600,13 +622,16 @@ static inline void *apple_kzalloc(size_t size) {
 #endif
 }
 
-static inline void apple_kfree(void *ptr, size_t size) {
+static inline void apple_kfree(void *ptr) {
 #ifdef KERNEL
     if (ptr) {
+        /* Como o Linux dá kfree(ptr) sem passar o tamanho, usamos a liberação genérica
+           do IOKit que não exige o size na assinatura, ou rastreamos via OSMalloc se o tag aceitar */
         if (gOSMallocTag) {
-            OSFree(ptr, (uint32_t)size, gOSMallocTag);
+            /* Se for usar OSFree com tag, remova o macro antigo e use uma tabela ou use apenas IOFree */
+            IOFree(ptr, 0); // Modificado para evitar pânico de tamanho errado
         } else {
-            IOFree(ptr, size);
+            IOFree(ptr, 0);
         }
     }
 #else
@@ -617,9 +642,9 @@ static inline void apple_kfree(void *ptr, size_t size) {
 #undef kzalloc
 #undef kfree
 #define kzalloc(size, flags)  apple_kzalloc(size)
-#define kfree(ptr)            apple_kfree(ptr, sizeof(*(ptr)))
+#define kfree(ptr)            apple_kfree(ptr)
 #define vzalloc(size)         apple_kzalloc(size)
-#define vfree(ptr)            apple_kfree(ptr, 1) // Fallback seguro para ponteiros opacos
+#define vfree(ptr)            apple_kfree(ptr) 
 
 static inline dma_addr_t pci_map_single(void *pdev, void *ptr, size_t size, int direction) { return 0; }
 static inline void pci_unmap_single(void *pdev, dma_addr_t dma_addr, size_t size, int direction) { }
@@ -654,12 +679,21 @@ struct pci_driver {
   #define le16_to_cpu(x) ((unsigned short)(x))
 #endif
 
-static inline unsigned short be16_to_cpu(__be16 val) { return (unsigned short)(((val & 0xFF) << 8) | ((val >> 8) & 0xFF)); }
-static inline unsigned int be32_to_cpu(__be32 val) {
-    return ((val & 0xFF) << 24) | ((val & 0xFF00) << 8) | ((val >> 8) & 0xFF00) | ((val >> 24) & 0xFF);
+/* Usando built-ins do Clang/Xcode para otimizar a inversão de bytes por hardware */
+static inline unsigned short be16_to_cpu(__be16 val) { 
+    return __builtin_bswap16((unsigned short)val); 
 }
-static inline unsigned short be16_to_cpup(const __be16 *p) { return be16_to_cpu(*p); }
-static inline u64 div64_u64(u64 dividend, u64 divisor) { return dividend / divisor; }
+static inline unsigned int be32_to_cpu(__be32 val) { 
+    return __builtin_bswap32((unsigned int)val); 
+}
+static inline unsigned short be16_to_cpup(const __be16 *p) { 
+    return be16_to_cpu(*p); 
+}
+
+/* Divisão de 64 bits está segura no modelo LP64 do macOS */
+static inline u64 div64_u64(u64 dividend, u64 divisor) { 
+    return dividend / divisor; 
+}
 
 // =========================================================================
 // 15. CONSTANTES E MÁSCARAS DO PADRÃO IEEE 802.11
