@@ -5,17 +5,6 @@
  * Specially Designed for macOS 12 (Monterey) and macOS 13 (Ventura) Kernel Extensions
  * Target Architecture: x86_64 / ARM64 (macOS Kernel Space)
  * Target Hardware: Realtek RTL8723BE PCIe Wireless Network Adapter Port
- *
- * Verified Hardware Parameters from Device Target Stack:
- * - Vendor ID       : 0x10EC (Realtek Semiconductor Corp.)
- * - Device ID       : 0xB723 (RTL8723BE PCIe Wireless Network Adapter)
- * - Subsystem Vendor: 0x1043 (ASUSTeK Computer Inc.)
- * - Subsystem Device: 0x207F (Notebook Integration Infrastructure)
- * - Revision ID     : 0x00
- *
- * This framework provides a 1:1 structural mapping of the Linux Core subsystem 
- * directly into the Apple XNU Kernel, eliminating all Xcode Linker errors 
- * (Undefined Symbols) by providing explicitly inlined functional bodies.
  */
 
 #ifndef _APPLE_LINUX_EMULATION_H_
@@ -62,6 +51,10 @@ extern "C" {
 
 #define likely(x)       __builtin_expect(!!(x), 1)
 #define unlikely(x)     __builtin_expect(!!(x), 0)
+
+#ifndef __printf
+#define __printf(a, b)  __attribute__((format(printf, a, b)))
+#endif
 
 #ifndef KERNEL_VERSION
 #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
@@ -122,18 +115,36 @@ typedef unsigned int gfp_t;
 typedef long long    time64_t;
 typedef u64          dma_addr_t;
 typedef unsigned long kernel_ulong_t;
-typedef int          bool;
 
-#ifndef true
-#define true 1
-#endif
-
-#ifndef false
-#define false 0
-#endif
+/* 
+ * CORREÇÃO: O Kernel framework da Apple já importa bool via stdbool.h nativo.
+ * Não podemos fazer typedef int bool. Deixamos o compilador usar o tipo nativo.
+ */
 
 /*******************************************************************************
- * 4. COMPREHENSIVE ERROR CODES REALIGNMENT MATRIX
+ * 4. NETWORK AND DRIVER CONSTANTS
+ *******************************************************************************/
+#define ETH_ALEN            6
+#define NUM_NL80211_BANDS   3
+
+enum nl80211_iftype {
+    NL80211_IFTYPE_UNSPECIFIED,
+    NL80211_IFTYPE_ADHOC,
+    NL80211_IFTYPE_STATION,
+    NL80211_IFTYPE_AP,
+    NL80211_IFTYPE_MONITOR,
+    NL80211_IFTYPE_MESH_POINT,
+    NL80211_IFTYPE_P2P_CLIENT,
+    NL80211_IFTYPE_P2P_GO,
+    NL80211_IFTYPE_P2P_DEVICE,
+};
+
+struct ieee80211_supported_band {
+    int dummy_band_data;
+};
+
+/*******************************************************************************
+ * 5. COMPREHENSIVE ERROR CODES REALIGNMENT MATRIX
  *******************************************************************************/
 #ifndef EPERM
 #define EPERM            1
@@ -206,7 +217,7 @@ typedef int          bool;
 #endif
 
 /*******************************************************************************
- * 5. MATHEMATICAL MACROS, ALIGNMENT ENGINE & DATA BOUNDARIES
+ * 6. MATHEMATICAL MACROS, ALIGNMENT ENGINE & DATA BOUNDARIES
  *******************************************************************************/
 #ifndef BIT
 #define BIT(nr) (1UL << (nr))
@@ -274,7 +285,7 @@ typedef int          bool;
 #define memcmp(s1, s2, n) __builtin_memcmp(s1, s2, n)
 
 /*******************************************************************************
- * 6. COMPLETE LINUX LINKED LIST ENGINE (EXPLODED FOR CLANG COMPILATION)
+ * 7. COMPLETE LINUX LINKED LIST ENGINE (EXPLODED FOR CLANG COMPILATION)
  *******************************************************************************/
 #ifdef LIST_HEAD
 #undef LIST_HEAD
@@ -386,7 +397,7 @@ static __always_inline int list_empty(const struct list_head *head)
          pos = n, n = container_of(n->member.next, typeof(*n), member))
 
 /*******************************************************************************
- * 7. LINUX HASH LISTS (HLIST ENGINE)
+ * 8. LINUX HASH LISTS (HLIST ENGINE)
  *******************************************************************************/
 struct hlist_head {
     struct hlist_node *first;
@@ -457,7 +468,7 @@ static __always_inline void hlist_add_head(struct hlist_node *n, struct hlist_he
          pos = (pos->member.next) ? hlist_entry(pos->member.next, typeof(*pos), member) : NULL)
 
 /*******************************************************************************
- * 8. ENDIANNESS CONVERSION ENGINE
+ * 9. ENDIANNESS CONVERSION ENGINE
  *******************************************************************************/
 #define cpu_to_le16(x) ((__le16)(uint16_t)(x))
 #define cpu_to_le32(x) ((__le32)(uint32_t)(x))
@@ -474,7 +485,7 @@ static __always_inline void hlist_add_head(struct hlist_node *n, struct hlist_he
 #define be64_to_cpu(x) __builtin_bswap64((uint64_t)(x))
 
 /*******************************************************************************
- * 9. ATOMIC BITWISE OPERATION MATRIX
+ * 10. ATOMIC BITWISE OPERATION MATRIX
  *******************************************************************************/
 static __always_inline int test_bit(int nr, const volatile unsigned long *addr)
 {
@@ -515,7 +526,7 @@ static __always_inline int test_and_change_bit(int nr, volatile unsigned long *a
 }
 
 /*******************************************************************************
- * 10. ADVANCED LOCKING EMULATION (SPINLOCKS & MUTEX OVER XNU CORE)
+ * 11. ADVANCED LOCKING EMULATION (SPINLOCKS & MUTEX OVER XNU CORE)
  *******************************************************************************/
 struct mutex {
     volatile int locked;
@@ -583,7 +594,7 @@ static __always_inline int mutex_is_locked(struct mutex *m)
 }
 
 /*******************************************************************************
- * 11. RCU (READ-COPY UPDATE) MEMORY SUBSYSTEM DEFENSIVE STUBS
+ * 12. RCU (READ-COPY UPDATE) MEMORY SUBSYSTEM DEFENSIVE STUBS
  *******************************************************************************/
 static __always_inline void rcu_read_lock(void) 
 {
@@ -601,7 +612,7 @@ static __always_inline void rcu_read_unlock(void)
 #define rcu_dereference_check(p, c)             (p)
 
 /*******************************************************************************
- * 12. ATOMIC VARIABLES COMPREHENSIVE INFRASTRUCTURE
+ * 13. ATOMIC VARIABLES COMPREHENSIVE INFRASTRUCTURE
  *******************************************************************************/
 typedef struct { volatile int counter; } atomic_t;
 typedef struct { volatile long counter; } atomic_long_t;
@@ -664,7 +675,7 @@ static __always_inline int atomic_cmpxchg(atomic_t *v, int old, int new_val)
 }
 
 /*******************************************************************************
- * 13. XNU MEMORY MANAGEMENT INTERFACING (DYNAMIC MALLOC ARCHITECTURE)
+ * 14. XNU MEMORY MANAGEMENT INTERFACING (DYNAMIC MALLOC ARCHITECTURE)
  *******************************************************************************/
 #define GFP_KERNEL  0x00ULL
 #define GFP_ATOMIC  0x01ULL
@@ -711,7 +722,7 @@ static __always_inline void *kmemdup(const void *src, size_t len, gfp_t flags)
 }
 
 /*******************************************************************************
- * 14. TIMEKEEPING, JIFFIES ENGINE, AND HIGH-PRECISION KERNEL DELAYS
+ * 15. TIMEKEEPING, JIFFIES ENGINE, AND HIGH-PRECISION KERNEL DELAYS
  *******************************************************************************/
 #define HZ 1000
 
@@ -736,23 +747,19 @@ static __always_inline void mdelay(unsigned long msecs)
     IOSleep((unsigned int)msecs);
 }
 
+/* CORREÇÃO: Chamando a função nativa do IOKit com a capitalização correta (IODelay) */
 static __always_inline void udelay(unsigned long usecs)
 {
-    iodelay(usecs);
-}
-
-static __always_inline void msleep(unsigned int msecs)
-{
-    IOSleep(msecs);
+    IODelay((unsigned int)usecs);
 }
 
 static __always_inline void usleep_range(unsigned long min_u, unsigned long max_u)
 {
-    iodelay((min_u + max_u) / 2);
+    IODelay((unsigned int)((min_u + max_u) / 2));
 }
 
 /*******************************************************************************
- * 15. LINUX ASYNCHRONOUS KERNEL TIMER SUBSYSTEM
+ * 16. LINUX ASYNCHRONOUS KERNEL TIMER SUBSYSTEM
  *******************************************************************************/
 struct timer_list {
     struct list_head entry;
@@ -796,7 +803,7 @@ static __always_inline int timer_pending(const struct timer_list *timer)
 }
 
 /*******************************************************************************
- * 16. WORKQUEUES ENGINE (SYNCHRONOUS COMPATIBILITY MAPPING)
+ * 17. WORKQUEUES ENGINE (SYNCHRONOUS COMPATIBILITY MAPPING)
  *******************************************************************************/
 struct work_struct {
     struct list_head entry;
@@ -868,7 +875,7 @@ static __always_inline void destroy_workqueue(void *wq)
 #define create_workqueue(name)              ((void *)0xDEADBEEF)
 
 /*******************************************************************************
- * 17. TASKLETS (IMMEDIATE BOTTOM HALF SCHEDULING INFRASTRUCTURE)
+ * 18. TASKLETS (IMMEDIATE BOTTOM HALF SCHEDULING INFRASTRUCTURE)
  *******************************************************************************/
 struct tasklet_struct {
     struct tasklet_struct *next;
@@ -912,7 +919,7 @@ static __always_inline void tasklet_disable(struct tasklet_struct *t)
 }
 
 /*******************************************************************************
- * 18. MASSIVE SOCKET BUFFER (SK_BUFF) EMULATION PIPELINE
+ * 19. MASSIVE SOCKET BUFFER (SK_BUFF) EMULATION PIPELINE
  *******************************************************************************/
 struct skb_frag_struct {
     void *page;
@@ -965,6 +972,7 @@ static __always_inline int skb_queue_len(const struct sk_buff_head *list)
     return (int)list->qlen;
 }
 
+struct sk_buff *dev_alloc_skb(unsigned int length);
 static __always_inline struct sk_buff *dev_alloc_skb(unsigned int length)
 {
     struct sk_buff *skb = (struct sk_buff *)IOMalloc(sizeof(struct sk_buff));
@@ -986,6 +994,7 @@ static __always_inline struct sk_buff *dev_alloc_skb(unsigned int length)
     return skb;
 }
 
+void kfree_skb(struct sk_buff *skb);
 static __always_inline void kfree_skb(struct sk_buff *skb)
 {
     if (skb) {
@@ -1052,7 +1061,7 @@ static __always_inline void skb_trim(struct sk_buff *skb, unsigned int len)
 }
 
 /*******************************************************************************
- * 19. DEVICE MODEL MATRICES & ABSTRACT DATA STRUCTURES
+ * 20. DEVICE MODEL MATRICES & ABSTRACT DATA STRUCTURES
  *******************************************************************************/
 struct device {
     const char *init_name;
@@ -1071,7 +1080,7 @@ static __always_inline void dev_set_drvdata(struct device *dev, void *data)
 }
 
 /*******************************************************************************
- * 20. EXHAUSTIVE PCI EXPRESS BUS SUBSYSTEM EMULATION (MAPPED WITH REALTEK IDS)
+ * 21. EXHAUSTIVE PCI EXPRESS BUS SUBSYSTEM EMULATION (MAPPED WITH REALTEK IDS)
  *******************************************************************************/
 struct pci_device_id {
     u32 vendor;
@@ -1158,7 +1167,7 @@ static __always_inline void iounmap(void *addr)
 }
 
 /*******************************************************************************
- * 21. MEMORY-MAPPED I/O (MMIO) HARDFORWARDING REGISTERS ACCESS ENGINE
+ * 22. MEMORY-MAPPED I/O (MMIO) HARDFORWARDING REGISTERS ACCESS ENGINE
  *******************************************************************************/
 #define ioread8(addr)           (*(volatile uint8_t *)(addr))
 #define ioread16(addr)          (*(volatile uint16_t *)(addr))
@@ -1172,7 +1181,7 @@ static __always_inline void iounmap(void *addr)
 #define mb()    __sync_synchronize()
 
 /*******************************************************************************
- * 22. IEEE 802.11 / MAC80211 WIRELESS CORE NETWORK INFRASTRUCTURE
+ * 23. IEEE 802.11 / MAC80211 WIRELESS CORE NETWORK INFRASTRUCTURE
  *******************************************************************************/
 struct net_device {
     char name[16];
@@ -1210,7 +1219,7 @@ static __always_inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const
 #define IEEE80211_QOS_CTL_TID_MASK 0x000f
 
 /*******************************************************************************
- * 23. LINUX FIRMWARE LOADING SIMULATOR ENGINE
+ * 24. LINUX FIRMWARE LOADING SIMULATOR ENGINE
  *******************************************************************************/
 struct firmware {
     size_t size;
@@ -1231,7 +1240,7 @@ static __always_inline void release_firmware(const struct firmware *firmware)
 }
 
 /*******************************************************************************
- * 24. CRYPTOGRAPHIC ALGORITHMS CORE MAPPING STUBS
+ * 25. CRYPTOGRAPHIC ALGORITHMS CORE MAPPING STUBS
  *******************************************************************************/
 struct crypto_arc4_ctx {
     u8 S[256];
@@ -1255,7 +1264,7 @@ static __always_inline int crypto_arc4_crypt(struct crypto_arc4_ctx *ctx,
 }
 
 /*******************************************************************************
- * 25. ADVANCED LOGGING INFRASTRUCTURE (REBOUNDED TO NATIVE XNU CORE IOLog)
+ * 26. ADVANCED LOGGING INFRASTRUCTURE (REBOUNDED TO NATIVE XNU CORE IOLog)
  *******************************************************************************/
 #define printk(fmt, ...)        IOLog(fmt, ##__VA_ARGS__)
 #define pr_info(fmt, ...)       IOLog("rtl8723be: " fmt, ##__VA_ARGS__)
@@ -1284,7 +1293,7 @@ static __always_inline int crypto_arc4_crypt(struct crypto_arc4_ctx *ctx,
 })
 
 /*******************************************************************************
- * 26. DEBUGFS, THERMAL ENGINE & POWER MANAGEMENT SUB-STUBS
+ * 27. DEBUGFS, THERMAL ENGINE & POWER MANAGEMENT SUB-STUBS
  *******************************************************************************/
 struct dentry {
     int d_dummy;
@@ -1302,6 +1311,16 @@ static __always_inline void debugfs_remove_recursive(struct dentry *topdir)
 
 #ifdef __cplusplus
 }
+#endif
+
+/* 
+ * CORREÇÃO DE COLISÃO XNU EXTERN: 
+ * O framework do macOS possui uma assinatura incompatível de msleep em sys/proc.h.
+ * Para interceptar as chamadas do driver Linux com segurança sem corromper as
+ * declarações nativas do XNU, aplicamos a macro de remapeamento no final do arquivo.
+ */
+#ifndef msleep
+#define msleep(msecs) IOSleep((unsigned int)(msecs))
 #endif
 
 #endif /* _APPLE_LINUX_EMULATION_H_ */
