@@ -1245,10 +1245,28 @@ struct ieee80211_tx_queue_params {
     unsigned int cw_max;
 };
 
+/* CORREÇÃO: Estrutura e funções de sincronização de Threads (Completion Pipeline) */
 struct completion {
     unsigned int done;
     spinlock_t wait_lock;
 };
+
+static __always_inline void init_completion(struct completion *x) {
+    x->done = 0;
+}
+
+static __always_inline void reinit_completion(struct completion *x) {
+    x->done = 0;
+}
+
+static __always_inline long wait_for_completion_timeout(struct completion *x, unsigned long timeout) {
+    return timeout ? (long)timeout : 1;
+}
+
+/* CORREÇÃO: Emulação de contexto de interrupção */
+static __always_inline int in_interrupt(void) {
+    return 0;
+}
 
 struct ieee80211_tx_info { int dummy; };
 struct ieee80211_rx_status { int dummy; };
