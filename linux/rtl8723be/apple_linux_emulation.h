@@ -301,7 +301,13 @@ static inline unsigned long apple_get_jiffies(void) {
 #define RTL_MAC80211_NUM_QUEUE 5
 
 #define mdelay(ms) IOSleep(ms)
-#define udelay(us) { int i; for(i=0; i<us*10; i++) { asm volatile(""); } }
+
+#define udelay(us) do { \
+    int _i; \
+    for(_i = 0; _i < (int)(us) * 10; _i++) { \
+        asm volatile(""); \
+    } \
+} while(0)
 
 static inline void linux_msleep(unsigned int ms) {
     IOSleep(ms);
