@@ -922,6 +922,8 @@ static __always_inline void tasklet_disable(struct tasklet_struct *t)
  * 19. MASSIVE SOCKET BUFFER (SK_BUFF) EMULATION PIPELINE
  *******************************************************************************/
 struct sk_buff {
+    struct sk_buff *next;
+    struct sk_buff *prev;
     unsigned char *data;
     unsigned char *head;
     unsigned char *tail;
@@ -932,7 +934,6 @@ struct sk_buff {
     unsigned char cb[48] __attribute__((aligned(8)));
 };
 
-/* CORREÇÃO: Define a cabeça da fila de SKBs para evitar "incomplete element type" no array do wifi.h */
 struct sk_buff_head {
     struct sk_buff *next;
     struct sk_buff *prev;
@@ -940,10 +941,49 @@ struct sk_buff_head {
     spinlock_t lock;
 };
 
+/* CORREÇÃO: Insere um elemento no fim da fila de pacotes */
+static __always_inline void __skb_queue_tail(struct sk_buff_head *list, struct sk_buff *newsk)
+{
+    newsk->next = NULL;
+    if (!list->next) {
+        list->next = newsk;
+        newsk->prev = NULL;
+        list->prev = newsk;
+    } else {
+        struct sk_buff *old_tail = list->prev;
+        if (old_tail) {
+            old_tail->next = newsk;
+            newsk->prev = old_tail;
+        }
+        list->prev = newsk;
+    }
+    list->qlen++;
+}
+
+/* CORREÇÃO: Remove e retorna o primeiro elemento da fila de pacotes */
+static __always_inline struct sk_buff *__skb_dequeue(struct sk_buff_head *list)
+{
+    struct sk_buff *skb = list->next;
+    if (skb) {
+        list->next = skb->next;
+        if (list->next) {
+            list->next->prev = NULL;
+        } else {
+            list->prev = NULL;
+        }
+        skb->next = NULL;
+        skb->prev = NULL;
+        list->qlen--;
+    }
+    return skb;
+}
+
 static __always_inline struct sk_buff *dev_alloc_skb(unsigned int length)
 {
     struct sk_buff *skb = (struct sk_buff *)IOMalloc(sizeof(struct sk_buff) + length);
     if (!skb) return NULL;
+    skb->next = NULL;
+    skb->prev = NULL;
     skb->head = (unsigned char *)(skb + 1);
     skb->data = skb->head;
     skb->tail = skb->head;
@@ -956,7 +996,6 @@ static __always_inline struct sk_buff *dev_alloc_skb(unsigned int length)
 static __always_inline void kfree_skb(struct sk_buff *skb)
 {
     if (skb) {
-        /* CORREÇÃO: O cast para (size_t) elimina o warning de conversão implícita de signedness */
         IOFree(skb, sizeof(struct sk_buff) + (size_t)(skb->end - skb->head));
     }
 }
@@ -993,6 +1032,37 @@ static __always_inline void skb_trim(struct sk_buff *skb, unsigned int len)
 {
     skb->len = len;
     skb->tail = skb->data + len;
+}
+
+/*******************************************************************************
+ * 19.5 PCI MMIO REGISTER ACCESS PIPELINE (readb, writeb, etc.)
+ *******************************************************************************/
+#ifndef __iomem
+#define __iomem
+#endif
+
+static __always_inline uint8_t readb(const volatile void *addr) {
+    return *(const volatile uint8_t *)addr;
+}
+
+static __always_inline uint16_t readw(const volatile void *addr) {
+    return *(const volatile uint16_t *)addr;
+}
+
+static __always_inline uint32_t readl(const volatile void *addr) {
+    return *(const volatile uint32_t *)addr;
+}
+
+static __always_inline void writeb(uint8_t val, volatile void *addr) {
+    *(volatile uint8_t *)addr = val;
+}
+
+static __always_inline void writew(uint16_t val, volatile void *addr) {
+    *(volatile uint16_t *)addr = val;
+}
+
+static __always_inline void writel(uint32_t val, volatile void *addr) {
+    *(volatile uint32_t *)addr = val;
 }
 
 /*******************************************************************************
