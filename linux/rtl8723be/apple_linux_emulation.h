@@ -7,7 +7,6 @@
 #include <sys/time.h>
 #include <sys/errno.h>
 #include <sys/param.h> 
-#include <sys/systm.h>
 
 #ifdef KERNEL
 #include <libkern/OSMalloc.h>
@@ -43,6 +42,14 @@ extern "C" {
 #define __must_check
 #define __always_unused
 #define __maybe_unused
+
+// Macros de Otimização e Controle de Branch (Necessárias para o trx.c)
+#ifndef likely
+  #define likely(x)      __builtin_expect(!!(x), 1)
+#endif
+#ifndef unlikely
+  #define unlikely(x)    __builtin_expect(!!(x), 0)
+#endif
 
 // =========================================================================
 // 2. MACROS DE MANIPULAÇÃO DE BITS e BYPASS XNU
@@ -144,7 +151,7 @@ struct ieee80211_tx_queue_params {
 };
 
 #ifndef RTL_MAC80211_NUM_QUEUE
-  #define RTL_MAC80211_NUM_QUEUE 5
+  #define RTL_MAC80211_NUM_QUEUE 4
 #endif
 
 #ifndef NUM_NL80211_BANDS
@@ -160,10 +167,69 @@ struct ieee80211_hdr {
     u16 seq_ctrl;
 } __packed;
 
+// Estruturas de rede e canal para suporte ao trx.c
+struct ieee80211_chan {
+    u32 center_freq;
+    u8 band;
+};
+
+struct ieee80211_chandef {
+    struct ieee80211_chan *chan;
+};
+
+struct ieee80211_hw_conf {
+    struct ieee80211_chandef chandef;
+};
+
+struct ieee80211_hw {
+    struct ieee80211_hw_conf conf;
+};
+
+struct ieee80211_key_conf {
+    int cipher;
+};
+
+struct ieee80211_tx_info_control {
+    struct ieee80211_key_conf *hw_key;
+};
+
+struct ieee80211_tx_info {
+    struct ieee80211_tx_info_control control;
+};
+
+struct ieee80211_ht_cap {
+    u8 ampdu_density;
+};
+
+struct ieee80211_sta_info {
+    struct ieee80211_ht_cap ht_cap;
+};
+
+// Estrutura de Rx Status corrigida com os campos exigidos por trx.c
 struct ieee80211_rx_status {
     u16 flags;
     s8 signal;
     u8 rate_idx;
+    u32 freq;
+    u8 band;
+    u64 mactime;
+    u8 bw;
+    u8 encoding;
+};
+
+#define RX_FLAG_FAILED_FCS_CRC   (1 << 0)
+#define RX_FLAG_MACTIME_START    (1 << 1)
+#define RX_FLAG_DECRYPTED        (1 << 2)
+
+#define RATE_INFO_BW_40          1
+#define RX_ENC_HT                2
+
+enum {
+    WLAN_CIPHER_SUITE_NONE,
+    WLAN_CIPHER_SUITE_WEP40,
+    WLAN_CIPHER_SUITE_TKIP,
+    WLAN_CIPHER_SUITE_CCMP,
+    WLAN_CIPHER_SUITE_WEP104
 };
 
 // =========================================================================
@@ -209,7 +275,6 @@ static inline int time_after(unsigned long a, unsigned long b) { return (long)(a
 // =========================================================================
 // 7. EMULAÇÃO COMPLETA DE SINCRO (WAIT FOR COMPLETION) NO MACOS
 // =========================================================================
-
 struct completion {
     unsigned int done;
     void *event_chan; 
@@ -231,15 +296,7 @@ static inline unsigned long apple_wait_for_completion_timeout(struct completion 
         return timeout_jiffies;
     }
 #ifdef KERNEL
-    // 1. Criamos a estrutura que o Kernel do macOS espera receber
-    struct timespec ts;
-    
-    // 2. Convertemos os milissegundos em segundos e nanossegundos
-    ts.tv_sec = timeout_ms / 1000;
-    ts.tv_nsec = (timeout_ms % 1000) * 1000000;
-
-    // 3. Passamos o ponteiro (&ts) em vez do inteiro direto
-    int result = msleep(x->event_chan, NULL, PUSER, "rtl_wait", &ts);
+    int result = msleep(x->event_chan, NULL, PUSER, "rtl_wait", timeout_ms);
     if (result == EWOULDBLOCK) {
         return 0; // Excedeu o tempo limite
     }
@@ -354,6 +411,11 @@ static inline void *skb_push(struct sk_buff *skb, unsigned int len) {
 }
 
 struct iphdr { u8 ihl:4, version:4; u8 protocol; };
+
+// Helper para verificar beacons (usado em trx.c)
+static inline int ieee80211_is_beacon(u16 fc) {
+    return (fc & 0x00fc) == 0x0080;
+}
 
 // =========================================================================
 // 12. TIMERS E WORKQUEUES EMULADOS USANDO THEAD_CALLS DO XNU
@@ -592,229 +654,9 @@ static inline u64 div64_u64(u64 dividend, u64 divisor) { return dividend / divis
 
 #define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454            (1 << 0)
 #define IEEE80211_VHT_CAP_SHORT_GI_80                     (1 << 1)
-#define IEEE80211_VHT_CAP_TXSTBC                          (1 << 2)
-#define IEEE80211_VHT_CAP_RXSTBC_1                        (1 << 3)
-#define IEEE80211_VHT_CAP_SU_BEAMFORMER_CAPABLE            (1 << 4)
-#define IEEE80211_VHT_CAP_SU_BEAMFORMEE_CAPABLE            (1 << 5)
-#define IEEE80211_VHT_CAP_HTC_VHT                         (1 << 6)
-#define IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_MASK (1 << 7)
-#define IEEE80211_VHT_CAP_RX_ANTENNA_PATTERN              (1 << 8)
-#define IEEE80211_VHT_CAP_TX_ANTENNA_PATTERN              (1 << 9)
-
-#define IEEE80211_VHT_MCS_SUPPORT_0_7                      0
-#define IEEE80211_VHT_MCS_SUPPORT_0_8                      1
-#define IEEE80211_VHT_MCS_SUPPORT_0_9                      2
-#define IEEE80211_VHT_MCS_NOT_SUPPORTED                   3
-
-#define IEEE80211_TX_RC_SHORT_GI                                  (1 << 0)
-#define IEEE80211_TX_RC_USE_CTS_PROTECT                  (1 << 1)
-#define IEEE80211_TX_RC_USE_RTS_CTS                       (1 << 2)
-#define IEEE80211_TX_RC_MCS                               (1 << 3)
-#define IEEE80211_TX_RC_VHT_MCS                           (1 << 4)
-#define IEEE80211_TX_RC_USE_SHORT_PREAMBLE               (1 << 0)
-
-#define WIPHY_VENDOR_CMD_NEED_WDEV                        (1 << 0)
-#define WIPHY_VENDOR_CMD_NEED_NETDEV                      (1 << 1)
-#define WIPHY_FLAG_IBSS_RSN                               (1 << 2)
-#define WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL                  (1 << 3)
-
-#define NL80211_BAND_2GHZ                                 0
-#define NL80211_BAND_5GHZ                                 1
-#define IEEE80211_ADDBA_PARAM_TID_MASK                    0x001e
-
-#define WLAN_CIPHER_SUITE_WEP40    0x000fac01
-#define WLAN_CIPHER_SUITE_TKIP     0x000fac02
-#define WLAN_CIPHER_SUITE_CCMP     0x000fac04
-#define WLAN_CIPHER_SUITE_WEP104   0x000fac05
-
-#define RX_FLAG_FAILED_FCS_CRC     0x0001
-#define RX_FLAG_MACTIME_START      0x0002
-#define RX_FLAG_DECRYPTED          0x0004
-#define RATE_INFO_BW_40            2
-#define RX_ENC_HT                  1
-
-#define WLAN_CATEGORY_HT              7
-#define WLAN_HT_ACTION_SMPS           2
-#define WLAN_HT_SMPS_CONTROL_STATIC   0
-#define WLAN_HT_SMPS_CONTROL_DYNAMIC  1
-#define WLAN_HT_SMPS_CONTROL_DISABLED 0
-
-enum nl80211_iftype {
-    NL80211_IFTYPE_UNSPECIFIED, NL80211_IFTYPE_ADHOC, NL80211_IFTYPE_STATION, NL80211_IFTYPE_AP,
-    NL80211_IFTYPE_AP_VLAN, NL80211_IFTYPE_WDS, NL80211_IFTYPE_MONITOR, NL80211_IFTYPE_MESH_POINT,
-    NL80211_IFTYPE_P2P_CLIENT, NL80211_IFTYPE_P2P_GO, NL80211_IFTYPE_P2P_DEVICE, NL80211_IFTYPE_OCB,
-    NL80211_IFTYPE_NAN
-};
-
-enum nl80211_channel_type {
-    NL80211_CHAN_NO_HT, NL80211_CHAN_HT20, NL80211_CHAN_HT40MINUS, NL80211_CHAN_HT40PLUS
-};
-
-enum ieee80211_smps_mode {
-    IEEE80211_SMPS_STATIC = 0, IEEE80211_SMPS_DYNAMIC, IEEE80211_SMPS_AUTOMATIC,
-    IEEE80211_SMPS_OFF, IEEE80211_SMPS_NUM_MODES
-};
-
-enum ieee80211_hw_set_type {
-    SIGNAL_DBM = 0, RX_INCLUDES_FCS, AMPDU_AGGREGATION, CONNECTION_MONITOR,
-    MFP_CAPABLE, REPORTS_TX_ACK_STATUS, SUPPORTS_TX_FRAG, SUPPORT_FAST_XMIT,
-    SUPPORTS_AMSDU_IN_AMPDU, SUPPORTS_PS, PS_NULLFUNC_STACK, SUPPORTS_DYNAMIC_PS
-};
-
-// =========================================================================
-// 16. ESTRUTURAS DO SUBSISTEMA WIRELESS (NL80211 / MAC80211)
-// =========================================================================
-struct ieee80211_channel { int center_freq; int band; int hw_value; unsigned int flags; int max_power; };
-struct ieee80211_rate { unsigned int bitrate; unsigned int flags; int hw_value; };
-struct ieee80211_vht_cap { int dummy; };
-
-struct ieee80211_mcs_cap {
-    unsigned char rx_mask[2];
-};
-
-struct ieee80211_ht_cap {
-    unsigned int cap;
-    struct ieee80211_mcs_cap mcs;
-};
-
-struct ieee80211_supported_band {
-    int band; struct ieee80211_channel *channels; int n_channels;
-    struct ieee80211_rate *bitrates; int n_bitrates;
-    struct ieee80211_ht_cap ht_cap; struct ieee80211_vht_cap vht_cap;  
-};
-
-struct ieee80211_hw {
-    void *priv; 
-    void *wiphy;
-};
-
-struct wireless_dev { int dummy; };
-struct wiphy;
-
-struct wiphy_vendor_command {
-    struct {
-        u32 vendor_id;
-        u32 subcmd;
-    } info;
-    int (*doit)(struct wiphy *wiphy, struct wireless_dev *wdev, const void *data, int len);
-    unsigned int flags; 
-};
-
-struct wiphy {
-    const struct wiphy_vendor_command *vendor_commands;
-    int n_vendor_commands;
-    struct ieee80211_supported_band *bands[2];
-    unsigned int interface_modes; unsigned int flags; int rts_threshold;
-    char perm_addr[ETH_ALEN];
-};
-
-struct ieee80211_tx_rate { u32 flags; u8 idx; };
-struct ieee80211_tx_info { u32 flags; int band; };
-struct ieee80211_vif { struct { int use_short_slot; } bss_conf; };
-struct ieee80211_sta;
-
-struct ieee80211_mgmt {
-    u16 frame_control; u8 da[ETH_ALEN]; u8 sa[ETH_ALEN]; u8 bssid[ETH_ALEN];
-    union {
-        struct { u8 variable[1]; } beacon;
-        struct {
-            u8 category;
-            union {
-                struct { u8 action; u8 smps_control; } ht_smps;
-                struct { u16 capab; } addba_req;
-            } u;
-        } action;
-    } u;
-};
-
-// =========================================================================
-// 17. ENGINE DE COMPATIBILIDADE MAC80211 (MOCK INLINE)
-// =========================================================================
-static inline int ieee80211_is_beacon(unsigned short fc) { return (fc & 0x00fc) == 0x0080; }
-static inline int ieee80211_is_mgmt(unsigned short fc) { return (fc & 0x000c) == 0x0000; }
-static inline int ieee80211_is_ctl(unsigned short fc) { return (fc & 0x000c) == 0x0004; }
-static inline int ieee80211_is_nullfunc(unsigned short fc) { return (fc & 0x00fc) == 0x0048 || (fc & 0x00fc) == 0x00c8; }
-static inline int ieee80211_is_data_qos(unsigned short fc) { return (fc & 0x000c) == 0x0008 && (fc & 0x0080); }
-static inline int ieee80211_is_data(unsigned short fc) { return ((fc & 0x000c) == 0x0008); }
-static inline int ieee80211_is_auth(unsigned short fc) { return ((fc & 0x00fc) == 0x00b0); }
-static inline int ieee80211_is_probe_req(unsigned short fc) { return ((fc & 0x00fc) == 0x0040); }
-static inline int ieee80211_is_probe_resp(unsigned short fc) { return ((fc & 0x00fc) == 0x0050); }
-static inline int ieee80211_is_action(unsigned short fc) { return ((fc & 0x00fc) == 0x00d0); }
-
-static inline u8 ieee80211_get_hdrlen_from_skb(struct sk_buff *skb) { return 24; }
-static inline void ieee80211_rx_irqsafe(void *hw, struct sk_buff *skb) { (void)hw; (void)skb; }
-static inline void ieee80211_start_tx_ba_cb_irqsafe(void *vif, const u8 *addr, u8 tid) { (void)vif; (void)addr; (void)tid; }
-static inline void ieee80211_stop_tx_ba_cb_irqsafe(void *vif, const u8 *addr, u8 tid) { (void)vif; (void)addr; (void)tid; }
-static inline void ieee80211_connection_loss(void *hw) { (void)hw; }
-
-static inline unsigned char *ieee80211_get_SA(void *hdr) { return ((unsigned char *)hdr) + 10; }
-static inline unsigned char *ieee80211_get_DA(void *hdr) { return ((unsigned char *)hdr) + 4; }
-
-static inline int _ieee80211_is_robust_mgmt_frame(const void *hdr) { return 0; }
-static inline int ieee80211_has_protected(unsigned short fc) { return (fc & 0x4000) ? 1 : 0; }
-
-static inline u8 *ieee80211_get_qos_ctl(const void *hdr) { static u8 dummy[2] = {0}; return dummy; }
-static inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const u8 *addr) { return NULL; }
-
-static inline void ieee80211_hw_set(struct ieee80211_hw *hw, enum ieee80211_hw_set_type type) { (void)hw; (void)type; }
-#define SET_IEEE80211_PERM_ADDR(hw, addr)                ((void)(hw), (void)(addr))
-static inline void get_random_bytes(void *buf, int nbytes) { (void)buf; (void)nbytes; }
-#define wiphy_rfkill_set_hw_state(w, s)                  ((void)(w), (void)(s))
-#define wiphy_rfkill_start_polling(w)                    ((void)(w))
-#define wiphy_rfkill_stop_polling(w)                     ((void)(w))
-
-#define wiphy_to_ieee80211_hw(w)                         ((struct ieee80211_hw *)(w))
-
-static inline int ieee80211_rate_get_vht_nss(const struct ieee80211_tx_rate *r) { return 1; }
-static inline int ieee80211_rate_get_vht_mcs(const struct ieee80211_tx_rate *r) { return 0; }
-static inline struct ieee80211_rate *ieee80211_get_tx_rate(void *hw, void *info) {
-    static struct ieee80211_rate dummy_rate = {0}; return &dummy_rate;
-}
-
-static inline struct ieee80211_tx_info *IEEE80211_SKB_CB(struct sk_buff *skb) {
-    static struct ieee80211_tx_info mock_info;
-    return &mock_info;
-}
 
 #ifdef __cplusplus
 }
 #endif
-
-// =========================================================================
-// DESATIVAR INICIALIZADORES DE MÓDULO DO LINUX
-// =========================================================================
-#define module_init(x) void linux_init_##x(void) {}
-#define module_exit(x) void linux_exit_##x(void) {}
-
-// =========================================================================
-// SUPORTE DE COMPATIBILIDADE MAC/LINUX (DRIVERS EXTRA)
-// =========================================================================
-#ifndef ARRAY_SIZE
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
-#endif
-#define DMA_BIT_MASK(n) (((n) == 64) ? ~0ULL : ((1ULL << (n)) - 1))
-
-#define PCI_DMA_TODEVICE   1
-#define PCI_DMA_FROMDEVICE 2
-
-#define local_save_flags(flags)  do { (void)(flags); } while(0)
-#define local_irq_enable()       do { } while(0)
-#define local_irq_disable()      do { } while(0)
-#define local_irq_restore(flags) do { (void)(flags); } while(0)
-
-#ifndef IEEE80211_HT_CAP_SGI_40
-#define IEEE80211_HT_CAP_SGI_40        0x00000020
-#endif
-#ifndef IEEE80211_HT_CAP_SGI_20
-#define IEEE80211_HT_CAP_SGI_20        0x00000010
-#endif
-#define IEEE80211_HT_CAP_MAX_AMSDU_7935 0x00000400
-
-struct ieee80211_sta {
-    struct ieee80211_ht_cap ht_cap;
-    void *drv_priv;
-    int aid;
-    unsigned int supp_rates[2];
-};
 
 #endif /* APPLE_LINUX_EMULATION_H */
