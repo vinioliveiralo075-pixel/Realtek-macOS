@@ -1318,7 +1318,7 @@ static __always_inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const
     return NULL;
 }
 
-#define IEEE80211_QOS_CTL_TID_MASK 0x000f/*******************************************************************************
+/*******************************************************************************
  * 23. IEEE 802.11 / MAC80211 WIRELESS CORE NETWORK INFRASTRUCTURE
  *******************************************************************************/
 struct net_device {
@@ -1343,7 +1343,7 @@ struct ieee80211_tx_queue_params {
     unsigned int cw_max;
 };
 
-/* CORREÇÃO: Estrutura e funções de sincronização de Threads (Completion Pipeline) */
+/* Sincronização de Threads (Completion Pipeline) */
 struct completion {
     unsigned int done;
     spinlock_t wait_lock;
@@ -1365,7 +1365,7 @@ static __always_inline long wait_for_completion_timeout(struct completion *x, un
     return timeout ? (long)timeout : 1;
 }
 
-/* CORREÇÃO: Emulação de contexto de interrupção */
+/* Emulação de contexto de interrupção */
 static __always_inline int in_interrupt(void) {
     return 0;
 }
@@ -1374,7 +1374,7 @@ struct ieee80211_tx_info { int dummy; };
 struct ieee80211_rx_status { int dummy; };
 struct urb { int dummy; };
 
-/* CORREÇÃO: Estrutura base do seq_file e seus clones funcionais para o ecossistema Mac */
+/* Estrutura base do seq_file para o ecossistema Mac */
 struct seq_file { int dummy; };
 
 static __always_inline int seq_puts(struct seq_file *m, const char *s) {
