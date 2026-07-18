@@ -1339,11 +1339,50 @@ static __always_inline void iounmap(void *addr)
 #define WLAN_CIPHER_SUITE_TKIP   0x000fc002
 #define WLAN_CIPHER_SUITE_CCMP   0x000fc004
 
+// Flags de Banda e Canal exigidas pelo Clang
+enum nl80211_band {
+    NL80211_BAND_2GHZ,
+    NL80211_BAND_5GHZ,
+    NL80211_BAND_6GHZ,
+};
+#define IEEE80211_CHAN_NO_HT40MINUS     0x00000020
+
+#define IEEE80211_HT_CAP_SUP_WIDTH_20_40 0x0002
+#define IEEE80211_HT_CAP_DSSSCCK40       0x0004
+#define IEEE80211_HT_CAP_MAX_AMSDU       0x0008
+#define IEEE80211_HT_MAX_AMPDU_64K       3
+#define IEEE80211_HT_MPDU_DENSITY_16     7
+#define IEEE80211_HT_MCS_TX_DEFINED      0x01
+
 struct net_device {
     char name[16];
     unsigned char dev_addr[6];
     unsigned char perm_addr[6];
     long unsigned int state;
+};
+
+// Estruturas Wireless que estavam faltando e geravam os erros no base.c
+struct ieee80211_channel {
+    int band;
+    int center_freq;
+    int hw_value;
+    unsigned int flags;
+};
+
+struct ieee80211_rate {
+    unsigned int bitrate;
+    unsigned char flags;
+    unsigned char hw_value;
+};
+
+struct ieee80211_sta_ht_cap {
+    unsigned char ht_supported;
+    unsigned short cap;
+    unsigned char ampdu_factor;
+    unsigned char ampdu_density;
+    struct {
+        unsigned char tx_params;
+    } mcs;
 };
 
 struct ieee80211_chan_def {
@@ -1444,61 +1483,6 @@ struct ieee80211_sta {
     uint32_t supp_rates[2]; 
     struct ht_capability ht_cap;
 };
-
-struct wiphy;
-struct regulatory_request;
-enum ieee80211_smps_mode { IEEE80211_SMPS_OFF };
-
-struct wireless_dev { int dummy_state; };
-struct rtw_vif { int execution_channel; };
-
-static __always_inline u8 *ieee80211_get_qos_ctl(void *hdr) { return NULL; }
-static __always_inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const u8 *bssid) { return NULL; }
-
-static __always_inline uint8_t *ieee80211_get_SA(struct ieee80211_hdr *hdr) { return hdr ? hdr->addr2 : NULL; }
-static __always_inline uint8_t *ieee80211_get_DA(struct ieee80211_hdr *hdr) { return hdr ? hdr->addr1 : NULL; }
-static __always_inline bool ether_addr_equal(const uint8_t *addr1, const uint8_t *addr2) { return __builtin_memcmp(addr1, addr2, 6) == 0; }
-
-// Inline Helpers de segurança e análise de frames
-static __always_inline bool _ieee80211_is_robust_mgmt_frame(struct ieee80211_hdr *hdr) { return false; }
-static __always_inline bool ieee80211_has_protected(uint16_t frame_control) { return false; }
-
-static inline bool ieee80211_is_mgmt(uint16_t fc) {
-    return (le16_to_cpu(fc) & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT;
-}
-
-static inline bool ieee80211_is_ctl(uint16_t fc) {
-    return (le16_to_cpu(fc) & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_CTL;
-}
-
-static inline bool ieee80211_is_beacon(uint16_t fc) {
-    return (le16_to_cpu(fc) & (IEEE80211_FCTL_FTYPE | IEEE80211_FCTL_STYPE)) == 
-           (IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_BEACON);
-}
-
-static inline bool ieee80211_is_nullfunc(uint16_t fc) { return false; }
-static inline bool ieee80211_is_data_qos(uint16_t fc) { return false; }
-
-// Helpers de checagem de endereço MAC (Resolvendo o erro 614 do broadcast)
-static inline bool is_multicast_ether_addr(const uint8_t *addr) { return addr ? (addr[0] & 0x01) : false; }
-static inline bool is_broadcast_ether_addr(const uint8_t *addr) { 
-    return addr ? (addr[0] == 0xff && addr[1] == 0xff && addr[2] == 0xff && 
-                   addr[3] == 0xff && addr[4] == 0xff && addr[5] == 0xff) : false; 
-}
-
-// Emulação de tipos e funções de DMA PCI (Colocado aqui em cima para o trx.c enxergar a tempo)
-#define PCI_DMA_TODEVICE 1
-typedef uint64_t dma_addr_t;
-
-static inline dma_addr_t pci_map_single(void *pdev, void *ptr, size_t size, int direction) {
-    return (dma_addr_t)((uintptr_t)ptr);
-}
-
-static inline int pci_dma_mapping_error(void *pdev, dma_addr_t dma_addr) {
-    return 0;
-}
-
-#define IEEE80211_QOS_CTL_TID_MASK 0x000f
 
 /*******************************************************************************
  * 24. LINUX FIRMWARE LOADING SIMULATOR ENGINE
