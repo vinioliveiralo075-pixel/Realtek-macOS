@@ -1459,7 +1459,7 @@ static __always_inline uint8_t *ieee80211_get_SA(struct ieee80211_hdr *hdr) { re
 static __always_inline uint8_t *ieee80211_get_DA(struct ieee80211_hdr *hdr) { return hdr ? hdr->addr1 : NULL; }
 static __always_inline bool ether_addr_equal(const uint8_t *addr1, const uint8_t *addr2) { return __builtin_memcmp(addr1, addr2, 6) == 0; }
 
-// Inline Helpers de segurança e análise de frames (Sintaxe limpa e corrigida)
+// Inline Helpers de segurança e análise de frames
 static __always_inline bool _ieee80211_is_robust_mgmt_frame(struct ieee80211_hdr *hdr) { return false; }
 static __always_inline bool ieee80211_has_protected(uint16_t frame_control) { return false; }
 
@@ -1478,7 +1478,25 @@ static inline bool ieee80211_is_beacon(uint16_t fc) {
 
 static inline bool ieee80211_is_nullfunc(uint16_t fc) { return false; }
 static inline bool ieee80211_is_data_qos(uint16_t fc) { return false; }
+
+// Helpers de checagem de endereço MAC (Resolvendo o erro 614 do broadcast)
 static inline bool is_multicast_ether_addr(const uint8_t *addr) { return addr ? (addr[0] & 0x01) : false; }
+static inline bool is_broadcast_ether_addr(const uint8_t *addr) { 
+    return addr ? (addr[0] == 0xff && addr[1] == 0xff && addr[2] == 0xff && 
+                   addr[3] == 0xff && addr[4] == 0xff && addr[5] == 0xff) : false; 
+}
+
+// Emulação de tipos e funções de DMA PCI (Colocado aqui em cima para o trx.c enxergar a tempo)
+#define PCI_DMA_TODEVICE 1
+typedef uint64_t dma_addr_t;
+
+static inline dma_addr_t pci_map_single(void *pdev, void *ptr, size_t size, int direction) {
+    return (dma_addr_t)((uintptr_t)ptr);
+}
+
+static inline int pci_dma_mapping_error(void *pdev, dma_addr_t dma_addr) {
+    return 0;
+}
 
 #define IEEE80211_QOS_CTL_TID_MASK 0x000f
 
