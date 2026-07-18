@@ -1321,13 +1321,31 @@ enum nl80211_channel_type {
     NL80211_CHAN_HT40PLUS
 };
 
+/* Definições de Capacidade e Suporte HT adicionadas para o hw.c */
+struct ht_capability {
+    uint16_t cap;
+    struct {
+        uint8_t rx_mask[2];
+    } mcs;
+};
+
 struct ieee80211_sta {
     u8 mac_addr[6];
     void *driver_priv;
     void *drv_priv;
     unsigned int aid;
     struct list_head list;
+    uint32_t supp_rates[2]; 
+    struct ht_capability ht_cap;
 };
+
+/* Encaminhamento de tipos para limpar avisos de visibilidade */
+struct wiphy;
+struct regulatory_request;
+enum ieee80211_smps_mode { IEEE80211_SMPS_OFF };
+
+struct sk_buff_head { int dummy; };
+static inline int skb_queue_len(const struct sk_buff_head *list) { return 0; }
 
 struct wireless_dev {
     int dummy_state;
