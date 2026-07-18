@@ -34,6 +34,7 @@
 #include <linux/ip.h>
 #include <linux/module.h>
 #include <linux/udp.h>
+#include "../rtl8723be/apple_linux_emulation.h"
 
 /*
  *NOTICE!!!: This file will be very big, we should
