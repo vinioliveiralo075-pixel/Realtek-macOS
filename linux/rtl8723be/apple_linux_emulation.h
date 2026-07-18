@@ -1332,6 +1332,7 @@ static __always_inline void iounmap(void *addr)
 #define IEEE80211_STYPE_BEACON      0x0080
 #define IEEE80211_FCTL_TODS         0x0100
 #define IEEE80211_FCTL_FROMDS       0x0200
+#define IEEE80211_QOS_CTL_TID_MASK  0x000f
 
 // Identificadores de Criptografia (Cipher Suites)
 #define WLAN_CIPHER_SUITE_WEP40  0x000fc001
@@ -1409,6 +1410,16 @@ struct ieee80211_hdr {
     uint8_t addr4[6];
 } __attribute__((packed));
 
+// Stubs para gerenciamento de QoS e Frames de dados (Resolve erros no wifi.h)
+static __always_inline uint8_t *ieee80211_get_qos_ctl(const uint8_t *hdr) {
+    static uint8_t dummy_qos[2] = {0, 0};
+    return dummy_qos;
+}
+
+struct ieee80211_vif {
+    int dummy;
+};
+
 struct ieee80211_tx_queue_params {
     unsigned int acm;
     unsigned int aifs;
@@ -1482,7 +1493,13 @@ struct ieee80211_sta {
     struct list_head list;
     uint32_t supp_rates[2]; 
     struct ht_capability ht_cap;
+    struct ieee80211_vif *vif; // Link do VIF interno para compatibilidade estrutural
 };
+
+// Stub de busca de estações associadas (Resolve o erro de conversão implicita de int para struct*)
+static __always_inline struct ieee80211_sta *ieee80211_find_sta(struct ieee80211_vif *vif, const uint8_t *mgm_addr) {
+    return NULL;
+}
 
 /*******************************************************************************
  * 24. LINUX FIRMWARE LOADING SIMULATOR ENGINE
