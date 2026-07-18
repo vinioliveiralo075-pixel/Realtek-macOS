@@ -1608,42 +1608,4 @@ static inline bool ieee80211_is_beacon(uint16_t fc) {
            (IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_BEACON);
 }
 
-struct ieee80211_hdr {
-    uint16_t frame_control;
-    uint16_t duration_id;
-    uint8_t addr1[6];
-    uint8_t addr2[6];
-    uint8_t addr3[6];
-    uint16_t seq_ctrl;
-    uint8_t addr4[6];
-} __attribute__((packed));
-
-static inline uint8_t *ieee80211_get_SA(struct ieee80211_hdr *hdr) {
-    return hdr->addr2;
-}
-
-static inline bool ether_addr_equal(const uint8_t *addr1, const uint8_t *addr2) {
-    return __builtin_memcmp(addr1, addr2, 6) == 0;
-}
-
-struct ieee80211_chan_def {
-    struct {
-        uint32_t center_freq;
-        uint32_t band;
-    } *chan;
-};
-
-// Certifique-se de que essas structs não estejam duplicadas lá em cima.
-// Se já existirem, apenas adicione os campos internos nelas!
-struct ieee80211_hw {
-    struct {
-        struct ieee80211_chan_def chandef;
-    } conf;
-};
-
-struct ieee80211_rx_status {
-    uint32_t freq;
-    uint32_t band;
-};
-
 #endif /* _APPLE_LINUX_EMULATION_H_ */
