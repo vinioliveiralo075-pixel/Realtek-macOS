@@ -1245,7 +1245,7 @@ struct ieee80211_tx_queue_params {
     unsigned int cw_max;
 };
 
-/* CORREÇÃO: Estrutura e funções de sincronização de Threads (Completion Pipeline) */
+/* --- PIPELINE DE SINCRONIZAÇÃO (COMPLETION) --- */
 struct completion {
     unsigned int done;
     spinlock_t wait_lock;
@@ -1259,64 +1259,19 @@ static __always_inline void reinit_completion(struct completion *x) {
     x->done = 0;
 }
 
+static __always_inline void complete(struct completion *x) {
+    x->done = 1;
+}
+
 static __always_inline long wait_for_completion_timeout(struct completion *x, unsigned long timeout) {
     return timeout ? (long)timeout : 1;
 }
+/* ---------------------------------------------- */
 
-/* CORREÇÃO: Emulação de contexto de interrupção */
+/* Emulação de contexto de interrupção */
 static __always_inline int in_interrupt(void) {
     return 0;
 }
-
-struct ieee80211_tx_info { int dummy; };
-struct ieee80211_rx_status { int dummy; };
-struct urb { int dummy; };
-
-/* CORREÇÃO: Estrutura base do seq_file e seus clones funcionais para o ecossistema Mac */
-struct seq_file { int dummy; };
-
-static __always_inline int seq_puts(struct seq_file *m, const char *s) {
-    return 0;
-}
-
-static __always_inline int seq_printf(struct seq_file *m, const char *fmt, ...) {
-    return 0;
-}
-
-enum nl80211_channel_type {
-    NL80211_CHAN_NO_HT,
-    NL80211_CHAN_HT20,
-    NL80211_CHAN_HT40MINUS,
-    NL80211_CHAN_HT40PLUS
-};
-
-struct ieee80211_sta {
-    u8 mac_addr[6];
-    void *driver_priv;
-    void *drv_priv;
-    unsigned int aid;
-    struct list_head list;
-};
-
-struct wireless_dev {
-    int dummy_state;
-};
-
-struct rtw_vif {
-    int execution_channel;
-};
-
-static __always_inline u8 *ieee80211_get_qos_ctl(void *hdr)
-{
-    return NULL;
-}
-
-static __always_inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const u8 *bssid)
-{
-    return NULL;
-}
-
-#define IEEE80211_QOS_CTL_TID_MASK 0x000f
 
 /*******************************************************************************
  * 24. LINUX FIRMWARE LOADING SIMULATOR ENGINE
