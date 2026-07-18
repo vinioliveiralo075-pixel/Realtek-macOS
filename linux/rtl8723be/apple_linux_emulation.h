@@ -1149,6 +1149,23 @@ static __always_inline void dev_set_drvdata(struct device *dev, void *data)
 /*******************************************************************************
  * 21. EXHAUSTIVE PCI EXPRESS BUS SUBSYSTEM EMULATION (MAPPED WITH REALTEK IDS)
  *******************************************************************************/
+/* Aponta direto para a sua Seção 1, evitando duplicar o valor 0x10EC */
+#ifndef PCI_VENDOR_ID_REALTEK
+#define PCI_VENDOR_ID_REALTEK REALTEK_PCI_VENDOR_ID
+#endif
+
+#ifndef PCI_ANY_ID
+#define PCI_ANY_ID (~0U)
+#endif
+
+#ifndef KBUILD_MODNAME
+#define KBUILD_MODNAME "RTL8723BE_MacDriver"
+#endif
+
+/* Emulação do gerenciamento de energia Linux (PM) */
+#define SIMPLE_DEV_PM_OPS(name, suspend_fn, resume_fn) \
+    const int name = 0
+
 struct pci_device_id {
     u32 vendor;
     u32 device;
@@ -1168,6 +1185,17 @@ struct pci_dev {
     u16 subsystem_device;
     unsigned int irq;
     bool msix_enabled;
+};
+
+/* Estrutura base pci_driver para o sw.c injetar os callbacks com sucesso */
+struct pci_driver {
+    const char *name;
+    const struct pci_device_id *id_table;
+    int (*probe)(struct pci_dev *dev, const struct pci_device_id *id);
+    void (*remove)(struct pci_dev *dev);
+    struct {
+        const int *pm;
+    } driver;
 };
 
 static __always_inline void *pci_get_drvdata(struct pci_dev *pdev)
