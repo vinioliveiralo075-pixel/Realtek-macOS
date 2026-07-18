@@ -1593,10 +1593,6 @@ static __always_inline void debugfs_remove_recursive(struct dentry *topdir)
     // Clear modern filesystem tracing debug trees safely
 }
 
-#ifdef __cplusplus
-}
-#endif
-
 /* 
  * CORREÇÃO DE COLISÃO XNU EXTERN: 
  * O framework do macOS possui uma assinatura incompatível de msleep em sys/proc.h.
@@ -1626,5 +1622,9 @@ static inline int skb_queue_len(const struct sk_buff_head *list) {
 static inline void pci_unmap_single(void *pdev, uint64_t dma_addr, size_t size, int direction) {
     // Stub para o hw.c não reclamar do unmap
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _APPLE_LINUX_EMULATION_H_ */
