@@ -1344,9 +1344,6 @@ struct wiphy;
 struct regulatory_request;
 enum ieee80211_smps_mode { IEEE80211_SMPS_OFF };
 
-struct sk_buff_head { int dummy; };
-static inline int skb_queue_len(const struct sk_buff_head *list) { return 0; }
-
 struct wireless_dev {
     int dummy_state;
 };
