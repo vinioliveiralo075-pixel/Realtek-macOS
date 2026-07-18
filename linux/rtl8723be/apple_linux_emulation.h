@@ -1203,7 +1203,7 @@ struct pci_device_id {
     u32 device;
     u32 subvendor;
     u32 subdevice;
-    u32 class;
+    u32 device_class;
     u32 class_mask;
     kernel_ulong_t driver_data;
 };
