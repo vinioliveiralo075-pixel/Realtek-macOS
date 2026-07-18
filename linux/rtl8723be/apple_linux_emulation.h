@@ -1,11 +1,12 @@
-/*
- * apple_linux_emulation.h
- *
- * Exhaustive, Fully Inlined Linux Kernel Compatibility Layer
- * Specially Designed for macOS 12 (Monterey) and macOS 13 (Ventura) Kernel Extensions
- * Target Architecture: x86_64 / ARM64 (macOS Kernel Space)
- * Target Hardware: Realtek RTL8723BE PCIe Wireless Network Adapter Port
- */
+/******************************************************************************
+ * Realtek RTL8723BE Wireless Driver - macOS Port
+ * 
+ * Copyright (c) Realtek Corporation. All rights reserved.
+ * macOS Compatibility Layer & Porting by Vini
+ * 
+ * Description: Emulation header mapping Linux kernel interfaces to the 
+ *              macOS/XNU kernel framework environment.
+ ******************************************************************************/
 
 #ifndef _APPLE_LINUX_EMULATION_H_
 #define _APPLE_LINUX_EMULATION_H_
@@ -1426,5 +1427,14 @@ static __always_inline void debugfs_remove_recursive(struct dentry *topdir)
 #ifndef msleep
 #define msleep(msecs) IOSleep((unsigned int)(msecs))
 #endif
+
+// Missing Linux kernel helper definitions
+static inline void ether_addr_copy(u8 *dst, const u8 *src) {
+    memcpy(dst, src, 6);
+}
+
+static inline void skb_put_data(struct sk_buff *skb, const void *data, unsigned int len) {
+    memcpy(skb_put(skb, len), data, len);
+}
 
 #endif /* _APPLE_LINUX_EMULATION_H_ */
