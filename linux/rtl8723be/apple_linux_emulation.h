@@ -977,7 +977,7 @@ static __always_inline void tasklet_disable(struct tasklet_struct *t)
 }
 
 /*******************************************************************************
- * 19. MASSIVE SOCKET BUFFER (SK_BUFF) EMULATION PIPELINE
+ * 19. PIPELINE DE EMULAÇÃO DE BUFFER DE SOQUETE MASSIVO (SK_BUFF)
  *******************************************************************************/
 struct sk_buff {
     struct sk_buff *next;
@@ -989,6 +989,7 @@ struct sk_buff {
     unsigned int len;
     unsigned int data_len;
     uint16_t protocol;
+    uint32_t priority;
     unsigned char cb[48] __attribute__((aligned(8)));
 };
 
@@ -1310,7 +1311,7 @@ static __always_inline void iounmap(void *addr)
  * 23. IEEE 802.11 / MAC80211 WIRELESS CORE NETWORK INFRASTRUCTURE
  *******************************************************************************/
 
-// Macros de Sinalização e Flags de Rx exigidas pelo trx.c
+// Macros de Sinalização e Flags de Rx/Tx exigidas pelo trx.c
 #define RX_FLAG_FAILED_FCS_CRC   (1 << 0)
 #define RX_FLAG_MACTIME_START    (1 << 1)
 #define RX_FLAG_DECRYPTED        (1 << 2)
@@ -1318,9 +1319,25 @@ static __always_inline void iounmap(void *addr)
 #define RATE_INFO_BW_40          1
 #define RX_ENC_HT                2
 
-// Correção exata para as definições de máscara de controle de sequência (Sequence Control)
 #define IEEE80211_SCTL_FRAG      0x000f
 #define IEEE80211_SCTL_SEQ       0xfff0
+#define IEEE80211_FCTL_MOREFRAGS 0x0400
+#define IEEE80211_TX_CTL_AMPDU   (1 << 0)
+
+#define IEEE80211_FCTL_FTYPE        0x000c
+#define IEEE80211_FTYPE_MGMT        0x0000
+#define IEEE80211_FTYPE_CTL         0x0004
+#define IEEE80211_FTYPE_DATA        0x0008
+#define IEEE80211_FCTL_STYPE        0x00f0
+#define IEEE80211_STYPE_BEACON      0x0080
+#define IEEE80211_FCTL_TODS         0x0100
+#define IEEE80211_FCTL_FROMDS       0x0200
+
+// Identificadores de Criptografia (Cipher Suites)
+#define WLAN_CIPHER_SUITE_WEP40  0x000fc001
+#define WLAN_CIPHER_SUITE_WEP104 0x000fc005
+#define WLAN_CIPHER_SUITE_TKIP   0x000fc002
+#define WLAN_CIPHER_SUITE_CCMP   0x000fc004
 
 struct net_device {
     char name[16];
@@ -1373,9 +1390,21 @@ static __always_inline long wait_for_completion_timeout(struct completion *x, un
 
 static __always_inline int in_interrupt(void) { return 0; }
 
-struct ieee80211_tx_info { int dummy; };
+// Estrutura de chaves de criptografia (Resolve o erro 561)
+struct ieee80211_key_conf {
+    uint32_t cipher;
+    uint8_t keyidx;
+    uint8_t keylen;
+};
 
-/* Expandido: ieee80211_rx_status com suporte completo aos dados de sinal do trx.c */
+// Expandido: ieee80211_tx_info corrigido com suporte a flags e sub-struct control
+struct ieee80211_tx_info {
+    uint32_t flags;
+    struct {
+        struct ieee80211_key_conf *hw_key;
+    } control;
+};
+
 struct ieee80211_rx_status {
     uint32_t freq;
     uint32_t band;
@@ -1403,6 +1432,7 @@ enum nl80211_channel_type {
 struct ht_capability {
     uint16_t cap;
     struct { uint8_t rx_mask[2]; } mcs;
+    uint8_t ampdu_density; // Adicionado campo faltante (Resolve o erro 555)
 };
 
 struct ieee80211_sta {
@@ -1426,11 +1456,29 @@ static __always_inline u8 *ieee80211_get_qos_ctl(void *hdr) { return NULL; }
 static __always_inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const u8 *bssid) { return NULL; }
 
 static __always_inline uint8_t *ieee80211_get_SA(struct ieee80211_hdr *hdr) { return hdr ? hdr->addr2 : NULL; }
+static __always_inline uint8_t *ieee80211_get_DA(struct ieee80211_hdr *hdr) { return hdr ? hdr->addr1 : NULL; }
 static __always_inline bool ether_addr_equal(const uint8_t *addr1, const uint8_t *addr2) { return __builtin_memcmp(addr1, addr2, 6) == 0; }
 
-// Inline Helpers de segurança adicionados para os erros 405 e 406 do trx.c
+// Inline Helpers de segurança e análise de frames (Sintaxe limpa e corrigida)
 static __always_inline bool _ieee80211_is_robust_mgmt_frame(struct ieee80211_hdr *hdr) { return false; }
 static __always_inline bool ieee80211_has_protected(uint16_t frame_control) { return false; }
+
+static inline bool ieee80211_is_mgmt(uint16_t fc) {
+    return (le16_to_cpu(fc) & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT;
+}
+
+static inline bool ieee80211_is_ctl(uint16_t fc) {
+    return (le16_to_cpu(fc) & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_CTL;
+}
+
+static inline bool ieee80211_is_beacon(uint16_t fc) {
+    return (le16_to_cpu(fc) & (IEEE80211_FCTL_FTYPE | IEEE80211_FCTL_STYPE)) == 
+           (IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_BEACON);
+}
+
+static inline bool ieee80211_is_nullfunc(uint16_t fc) { return false; }
+static inline bool ieee80211_is_data_qos(uint16_t fc) { return false; }
+static inline bool is_multicast_ether_addr(const uint8_t *addr) { return addr ? (addr[0] & 0x01) : false; }
 
 #define IEEE80211_QOS_CTL_TID_MASK 0x000f
 
@@ -1559,32 +1607,6 @@ static inline int skb_queue_len(const struct sk_buff_head *list) {
 
 static inline void pci_unmap_single(void *pdev, uint64_t dma_addr, size_t size, int direction) {
     // Stub para o hw.c não reclamar do unmap
-}
-
-// =============================================================================
-// ADICIONADO POR VINI: EMULAÇÃO DE REDE IEEE80211 PARA COMPILAR O TRX.C
-// =============================================================================
-
-#define IEEE80211_FCTL_FTYPE        0x000c
-#define IEEE80211_FTYPE_MGMT        0x0000
-#define IEEE80211_FTYPE_CTL         0x0004
-#define IEEE80211_FTYPE_DATA        0x0008
-#define IEEE80211_FCTL_STYPE        0x00f0
-#define IEEE80211_STYPE_BEACON      0x0080
-#define IEEE80211_FCTL_TODS         0x0100
-#define IEEE80211_FCTL_FROMDS       0x0200
-
-static inline bool ieee80211_is_mgmt(uint16_t fc) {
-    return (le16_to_cpu(fc) & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT;
-}
-
-static inline bool ieee80211_is_ctl(uint16_t fc) {
-    return (le16_to_cpu(fc) & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_CTL;
-}
-
-static inline bool ieee80211_is_beacon(uint16_t fc) {
-    return (le16_to_cpu(fc) & (IEEE80211_FCTL_FTYPE | IEEE80211_FCTL_STYPE)) == 
-           (IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_BEACON);
 }
 
 #endif /* _APPLE_LINUX_EMULATION_H_ */
