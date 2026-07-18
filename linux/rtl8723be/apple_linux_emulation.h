@@ -1309,6 +1309,19 @@ static __always_inline void iounmap(void *addr)
 /*******************************************************************************
  * 23. IEEE 802.11 / MAC80211 WIRELESS CORE NETWORK INFRASTRUCTURE
  *******************************************************************************/
+
+// Macros de Sinalização e Flags de Rx exigidas pelo trx.c
+#define RX_FLAG_FAILED_FCS_CRC   (1 << 0)
+#define RX_FLAG_MACTIME_START    (1 << 1)
+#define RX_FLAG_DECRYPTED        (1 << 2)
+
+#define RATE_INFO_BW_40          1
+#define RX_ENC_HT                2
+
+// Correção exata para as definições de máscara de controle de sequência (Sequence Control)
+#define IEEE80211_SCTL_FRAG      0x000f
+#define IEEE80211_SCTL_SEQ       0xfff0
+
 struct net_device {
     char name[16];
     unsigned char dev_addr[6];
@@ -1316,7 +1329,6 @@ struct net_device {
     long unsigned int state;
 };
 
-/* Estrutura do Canal de Comunicação */
 struct ieee80211_chan_def {
     struct {
         uint32_t center_freq;
@@ -1324,7 +1336,6 @@ struct ieee80211_chan_def {
     } *chan;
 };
 
-/* Atualizado: ieee80211_hw agora possui a árvore conf->chandef para o trx.c */
 struct ieee80211_hw {
     void *priv;
     struct {
@@ -1332,7 +1343,6 @@ struct ieee80211_hw {
     } conf;
 };
 
-/* Atualizado: ieee80211_hdr completo com os campos de endereço MAC */
 struct ieee80211_hdr {
     uint16_t frame_control;
     uint16_t duration_id;
@@ -1356,47 +1366,32 @@ struct completion {
     spinlock_t wait_lock;
 };
 
-static __always_inline void init_completion(struct completion *x) {
-    x->done = 0;
-}
+static __always_inline void init_completion(struct completion *x) { x->done = 0; }
+static __always_inline void reinit_completion(struct completion *x) { x->done = 0; }
+static __always_inline void complete(struct completion *x) { x->done = 1; }
+static __always_inline long wait_for_completion_timeout(struct completion *x, unsigned long timeout) { return timeout ? (long)timeout : 1; }
 
-static __always_inline void reinit_completion(struct completion *x) {
-    x->done = 0;
-}
-
-static __always_inline void complete(struct completion *x) {
-    x->done = 1;
-}
-
-static __always_inline long wait_for_completion_timeout(struct completion *x, unsigned long timeout) {
-    return timeout ? (long)timeout : 1;
-}
-
-/* Emulação de contexto de interrupção */
-static __always_inline int in_interrupt(void) {
-    return 0;
-}
+static __always_inline int in_interrupt(void) { return 0; }
 
 struct ieee80211_tx_info { int dummy; };
 
-/* Atualizado: Estrutura rx_status com campos de frequência */
+/* Expandido: ieee80211_rx_status com suporte completo aos dados de sinal do trx.c */
 struct ieee80211_rx_status {
     uint32_t freq;
     uint32_t band;
+    uint32_t flag;
+    uint8_t bw;
+    uint8_t encoding;
+    uint16_t rate_idx;
+    uint64_t mactime;
+    int8_t signal;
 };
 
 struct urb { int dummy; };
-
-/* Estrutura base do seq_file para o ecossistema Mac */
 struct seq_file { int dummy; };
 
-static __always_inline int seq_puts(struct seq_file *m, const char *s) {
-    return 0;
-}
-
-static __always_inline int seq_printf(struct seq_file *m, const char *fmt, ...) {
-    return 0;
-}
+static __always_inline int seq_puts(struct seq_file *m, const char *s) { return 0; }
+static __always_inline int seq_printf(struct seq_file *m, const char *fmt, ...) { return 0; }
 
 enum nl80211_channel_type {
     NL80211_CHAN_NO_HT,
@@ -1405,12 +1400,9 @@ enum nl80211_channel_type {
     NL80211_CHAN_HT40PLUS
 };
 
-/* Definições de Capacidade e Suporte HT adicionadas para o hw.c */
 struct ht_capability {
     uint16_t cap;
-    struct {
-        uint8_t rx_mask[2];
-    } mcs;
+    struct { uint8_t rx_mask[2]; } mcs;
 };
 
 struct ieee80211_sta {
@@ -1423,35 +1415,22 @@ struct ieee80211_sta {
     struct ht_capability ht_cap;
 };
 
-/* Encaminhamento de tipos para limpar avisos de visibilidade */
 struct wiphy;
 struct regulatory_request;
 enum ieee80211_smps_mode { IEEE80211_SMPS_OFF };
 
-struct wireless_dev {
-    int dummy_state;
-};
+struct wireless_dev { int dummy_state; };
+struct rtw_vif { int execution_channel; };
 
-struct rtw_vif {
-    int execution_channel;
-};
+static __always_inline u8 *ieee80211_get_qos_ctl(void *hdr) { return NULL; }
+static __always_inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const u8 *bssid) { return NULL; }
 
-/* Inline Helpers necessários para o mapeamento do trx.c */
-static __always_inline u8 *ieee80211_get_qos_ctl(void *hdr) {
-    return NULL;
-}
+static __always_inline uint8_t *ieee80211_get_SA(struct ieee80211_hdr *hdr) { return hdr ? hdr->addr2 : NULL; }
+static __always_inline bool ether_addr_equal(const uint8_t *addr1, const uint8_t *addr2) { return __builtin_memcmp(addr1, addr2, 6) == 0; }
 
-static __always_inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const u8 *bssid) {
-    return NULL;
-}
-
-static __always_inline uint8_t *ieee80211_get_SA(struct ieee80211_hdr *hdr) {
-    return hdr ? hdr->addr2 : NULL;
-}
-
-static __always_inline bool ether_addr_equal(const uint8_t *addr1, const uint8_t *addr2) {
-    return __builtin_memcmp(addr1, addr2, 6) == 0;
-}
+// Inline Helpers de segurança adicionados para os erros 405 e 406 do trx.c
+static __always_inline bool _ieee80211_is_robust_mgmt_frame(struct ieee80211_hdr *hdr) { return false; }
+static __always_inline bool ieee80211_has_protected(uint16_t frame_control) { return false; }
 
 #define IEEE80211_QOS_CTL_TID_MASK 0x000f
 
