@@ -28,8 +28,8 @@ extern "C" {
 // ==========================================
 // 0.5 MACROS DE INTERRUPÇÃO E DMA (TOPO)
 // ==========================================
-#define local_save_flags(flags) ((flags) = 0)
-#define local_irq_enable() do { } while(0)
+#define local_save_flags(bandeiras) ((bandeiras) = 0)
+#define local_irq_enable() do { } while(0) /* Corrigido de 'faz' para 'do' */
 #define local_irq_restore(flags) do { (void)(flags); } while(0)
 
 #define PCI_DMA_TODEVICE 1
@@ -555,35 +555,90 @@ static __always_inline int test_and_change_bit(int nr, volatile unsigned long *a
 /*******************************************************************************
  * 11. ADVANCED LOCKING EMULATION (SPINLOCKS & MUTEX OVER XNU CORE)
  *******************************************************************************/
+#include <IOKit/IOLocks.h>
+
+// -----------------------------------------------------------------------------
+// MUTEX EMULATION (Uses XNU IOLock for safe context blocking/sleeping)
+// -----------------------------------------------------------------------------
 struct mutex {
+    IOLock *xnu_lock;
     volatile int locked;
     void *owner;
 };
 
-typedef volatile int spinlock_t;
-typedef volatile int rwlock_t;
+static __always_inline void mutex_init(struct mutex *m)
+{
+    if (m) {
+        m->xnu_lock = IOLockAlloc();
+        m->locked = 0;
+        m->owner = NULL;
+    }
+}
+
+// Nota técnica: Se o driver desalocar o módulo, precisamos destruir o IOLock.
+// Caso o hw.c não chame um destruidor, garanta a liberação no stop do KEXT.
+static __always_inline void mutex_destroy(struct mutex *m)
+{
+    if (m && m->xnu_lock) {
+        IOLockFree(m->xnu_lock);
+        m->xnu_lock = NULL;
+    }
+}
+
+static __always_inline void mutex_lock(struct mutex *m)
+{
+    if (m && m->xnu_lock) {
+        IOLockLock(m->xnu_lock); // Bloqueia a thread de forma segura (sleep)
+        m->locked = 1;
+    }
+}
+
+static __always_inline void mutex_unlock(struct mutex *m)
+{
+    if (m && m->xnu_lock) {
+        m->locked = 0;
+        IOLockUnlock(m->xnu_lock); // Acorda a próxima thread da fila
+    }
+}
+
+static __always_inline int mutex_is_locked(struct mutex *m)
+{
+    return (m ? m->locked : 0);
+}
+
+// -----------------------------------------------------------------------------
+// SPINLOCK EMULATION (Uses XNU IOSimpleLock for hardware-level atomic spins)
+// -----------------------------------------------------------------------------
+typedef IOSimpleLock* spinlock_t;
+typedef IORWLock* rwlock_t; // Mapeamento correto para Read-Write Locks do XNU
+
+static __always_inline void spin_lock_init(spinlock_t *lock)
+{
+    if (lock) {
+        *lock = IOSimpleLockAlloc();
+    }
+}
 
 static __always_inline void spin_lock(spinlock_t *lock)
 {
-    while (!__sync_bool_compare_and_swap(lock, 0, 1)) {
-        // Spin lock active waiting loop
+    if (lock && *lock) {
+        IOSimpleLockLock(*lock); // Desativa preempção e interrupções locais de forma segura
     }
 }
 
 static __always_inline void spin_unlock(spinlock_t *lock)
 {
-    __sync_lock_release(lock);
+    if (lock && *lock) {
+        IOSimpleLockUnlock(*lock);
+    }
 }
 
+// No Linux, _bh (Bottom Halves) gerencia travas de software interrupts. 
+// No XNU, mapeamos direto para a trava simples de hardware.
 #define spin_lock_bh(lock)                      spin_lock(lock)
 #define spin_unlock_bh(lock)                    spin_unlock(lock)
 #define spin_lock_irq(lock)                     spin_lock(lock)
 #define spin_unlock_irq(lock)                   spin_unlock(lock)
-
-static __always_inline void spin_lock_init(spinlock_t *lock)
-{
-    *lock = 0;
-}
 
 #define spin_lock_irqsave(lock, flags) \
     do { \
@@ -596,29 +651,6 @@ static __always_inline void spin_lock_init(spinlock_t *lock)
         (void)(flags); \
         spin_unlock(lock); \
     } while(0)
-
-static __always_inline void mutex_init(struct mutex *m)
-{
-    m->locked = 0;
-    m->owner = NULL;
-}
-
-static __always_inline void mutex_lock(struct mutex *m)
-{
-    while (!__sync_bool_compare_and_swap(&(m->locked), 0, 1)) {
-        // Mutex blocking hardware thread allocation emulation
-    }
-}
-
-static __always_inline void mutex_unlock(struct mutex *m)
-{
-    __sync_lock_release(&(m->locked));
-}
-
-static __always_inline int mutex_is_locked(struct mutex *m)
-{
-    return (m->locked != 0);
-}
 
 /*******************************************************************************
  * 12. RCU (READ-COPY UPDATE) MEMORY SUBSYSTEM DEFENSIVE STUBS
@@ -1516,5 +1548,69 @@ static inline int skb_queue_len(const struct sk_buff_head *list) {
 static inline void pci_unmap_single(void *pdev, uint64_t dma_addr, size_t size, int direction) {
     // Stub para o hw.c não reclamar do unmap
 }
+
+// =============================================================================
+// ADICIONADO POR VINI: EMULAÇÃO DE REDE IEEE80211 PARA COMPILAR O TRX.C
+// =============================================================================
+
+#define IEEE80211_FCTL_FTYPE        0x000c
+#define IEEE80211_FTYPE_MGMT        0x0000
+#define IEEE80211_FTYPE_CTL         0x0004
+#define IEEE80211_FTYPE_DATA        0x0008
+#define IEEE80211_FCTL_STYPE        0x00f0
+#define IEEE80211_STYPE_BEACON      0x0080
+#define IEEE80211_FCTL_TODS         0x0100
+#define IEEE80211_FCTL_FROMDS       0x0200
+
+static inline bool ieee80211_is_mgmt(uint16_t fc) {
+    return (le16_to_cpu(fc) & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT;
+}
+
+static inline bool ieee80211_is_ctl(uint16_t fc) {
+    return (le16_to_cpu(fc) & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_CTL;
+}
+
+static inline bool ieee80211_is_beacon(uint16_t fc) {
+    return (le16_to_cpu(fc) & (IEEE80211_FCTL_FTYPE | IEEE80211_FCTL_STYPE)) == 
+           (IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_BEACON);
+}
+
+struct ieee80211_hdr {
+    uint16_t frame_control;
+    uint16_t duration_id;
+    uint8_t addr1[6];
+    uint8_t addr2[6];
+    uint8_t addr3[6];
+    uint16_t seq_ctrl;
+    uint8_t addr4[6];
+} __attribute__((packed));
+
+static inline uint8_t *ieee80211_get_SA(struct ieee80211_hdr *hdr) {
+    return hdr->addr2;
+}
+
+static inline bool ether_addr_equal(const uint8_t *addr1, const uint8_t *addr2) {
+    return __builtin_memcmp(addr1, addr2, 6) == 0;
+}
+
+struct ieee80211_chan_def {
+    struct {
+        uint32_t center_freq;
+        uint32_t band;
+    } *chan;
+};
+
+// Certifique-se de que essas structs não estejam duplicadas lá em cima.
+// Se já existirem, apenas adicione os campos internos nelas!
+struct ieee80211_hw {
+    struct {
+        struct ieee80211_chan_def chandef;
+    } conf;
+};
+
+struct ieee80211_rx_status {
+    uint32_t freq;
+    uint32_t band;
+};
 
 #endif /* _APPLE_LINUX_EMULATION_H_ */
