@@ -25,6 +25,20 @@
 extern "C" {
 #endif
 
+// ==========================================
+// 0.5 MACROS DE INTERRUPÇÃO E DMA (TOPO)
+// ==========================================
+#define local_save_flags(flags) ((flags) = 0)
+#define local_irq_enable() do { } while(0)
+#define local_irq_restore(flags) do { (void)(flags); } while(0)
+
+#define PCI_DMA_TODEVICE 1
+#define DMA_BIT_MASK(n) (((n) == 64) ? ~0ULL : (1ULL << (n)) - 1)
+
+#define IEEE80211_HT_CAP_SUP_WIDTH_20_40 0x0002
+#define IEEE80211_HT_CAP_SGI_20          0x0020
+#define IEEE80211_HT_CAP_SGI_40          0x0040
+
 /*******************************************************************************
  * 1. HARDWARE IDENTIFICATION DEFINITIONS (REALTEK RTL8723BE TARGET ENGINE)
  *******************************************************************************/
@@ -78,6 +92,18 @@ extern "C" {
 #define EXPORT_SYMBOL_GPL(x)
 #define MODULE_DEVICE_TABLE(type, name)
 #define MODULE_FIRMWARE(name)
+
+// --- Adicionado por Vini: Correções para o hw.c ---
+#define local_save_flags(flags) ((flags) = 0)
+#define local_irq_enable() do { } while(0)
+#define local_irq_restore(flags) do { (void)(flags); } while(0)
+
+#define PCI_DMA_TODEVICE 1
+#define DMA_BIT_MASK(n) (((n) == 64) ? ~0ULL : (1ULL << (n)) - 1)
+
+#define IEEE80211_HT_CAP_SUP_WIDTH_20_40 0x0002
+#define IEEE80211_HT_CAP_SGI_20          0x0020
+#define IEEE80211_HT_CAP_SGI_40          0x0040
 
 /*******************************************************************************
  * 3. FUNDAMENTAL LINUX TYPES & EXACT-WIDTH ARCHITECTURE ALIGNMENT
@@ -1435,6 +1461,17 @@ static inline void ether_addr_copy(u8 *dst, const u8 *src) {
 
 static inline void skb_put_data(struct sk_buff *skb, const void *data, unsigned int len) {
     memcpy(skb_put(skb, len), data, len);
+}
+
+// ==========================================
+// 28. FUNÇÕES STUBS INLINE (FINAL)
+// ==========================================
+static inline int skb_queue_len(const struct sk_buff_head *list) {
+    return 0; 
+}
+
+static inline void pci_unmap_single(void *pdev, uint64_t dma_addr, size_t size, int direction) {
+    // Stub para o hw.c não reclamar do unmap
 }
 
 #endif /* _APPLE_LINUX_EMULATION_H_ */
