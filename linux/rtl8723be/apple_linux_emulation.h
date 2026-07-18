@@ -94,7 +94,6 @@ extern "C" {
 #define MODULE_FIRMWARE(name)
 
 // --- Adicionado por Vini: Correções para o hw.c ---
-#define local_save_flags(flags) ((flags) = 0)
 #define local_irq_enable() do { } while(0)
 #define local_irq_restore(flags) do { (void)(flags); } while(0)
 
@@ -1317,13 +1316,32 @@ struct net_device {
     long unsigned int state;
 };
 
-struct ieee80211_hw {
-    void *priv;
+/* Estrutura do Canal de Comunicação */
+struct ieee80211_chan_def {
+    struct {
+        uint32_t center_freq;
+        uint32_t band;
+    } *chan;
 };
 
+/* Atualizado: ieee80211_hw agora possui a árvore conf->chandef para o trx.c */
+struct ieee80211_hw {
+    void *priv;
+    struct {
+        struct ieee80211_chan_def chandef;
+    } conf;
+};
+
+/* Atualizado: ieee80211_hdr completo com os campos de endereço MAC */
 struct ieee80211_hdr {
     uint16_t frame_control;
-};
+    uint16_t duration_id;
+    uint8_t addr1[6];
+    uint8_t addr2[6];
+    uint8_t addr3[6];
+    uint16_t seq_ctrl;
+    uint8_t addr4[6];
+} __attribute__((packed));
 
 struct ieee80211_tx_queue_params {
     unsigned int acm;
@@ -1360,7 +1378,13 @@ static __always_inline int in_interrupt(void) {
 }
 
 struct ieee80211_tx_info { int dummy; };
-struct ieee80211_rx_status { int dummy; };
+
+/* Atualizado: Estrutura rx_status com campos de frequência */
+struct ieee80211_rx_status {
+    uint32_t freq;
+    uint32_t band;
+};
+
 struct urb { int dummy; };
 
 /* Estrutura base do seq_file para o ecossistema Mac */
@@ -1412,12 +1436,21 @@ struct rtw_vif {
     int execution_channel;
 };
 
+/* Inline Helpers necessários para o mapeamento do trx.c */
 static __always_inline u8 *ieee80211_get_qos_ctl(void *hdr) {
     return NULL;
 }
 
 static __always_inline struct ieee80211_sta *ieee80211_find_sta(void *vif, const u8 *bssid) {
     return NULL;
+}
+
+static __always_inline uint8_t *ieee80211_get_SA(struct ieee80211_hdr *hdr) {
+    return hdr ? hdr->addr2 : NULL;
+}
+
+static __always_inline bool ether_addr_equal(const uint8_t *addr1, const uint8_t *addr2) {
+    return __builtin_memcmp(addr1, addr2, 6) == 0;
 }
 
 #define IEEE80211_QOS_CTL_TID_MASK 0x000f
