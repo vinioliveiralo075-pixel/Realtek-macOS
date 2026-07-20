@@ -1410,8 +1410,47 @@ struct ieee80211_hdr {
     uint8_t addr4[6];
 } __attribute__((packed));
 
-// Stubs para gerenciamento de QoS e Frames de dados (Resolve erros no wifi.h)
-static __always_inline uint8_t *ieee80211_get_qos_ctl(const uint8_t *hdr) {
+// Helpers para extração de Endereços MAC (SA = Source, DA = Destination)
+static inline const uint8_t *ieee80211_get_SA(const struct ieee80211_hdr *hdr) {
+    return hdr->addr2;
+}
+
+static inline const uint8_t *ieee80211_get_DA(const struct ieee80211_hdr *hdr) {
+    return hdr->addr1;
+}
+
+// Funções de decodificação de Frame Control (fc) do 802.11
+static inline int ieee80211_is_beacon(uint16_t fc) {
+    return (fc & (IEEE80211_FCTL_FTYPE | IEEE80211_FCTL_STYPE)) == (IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_BEACON);
+}
+
+static inline int ieee80211_is_mgmt(uint16_t fc) {
+    return (fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT;
+}
+
+static inline int ieee80211_is_ctl(uint16_t fc) {
+    return (fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_CTL;
+}
+
+static inline int ieee80211_is_nullfunc(uint16_t fc) {
+    uint16_t stype = fc & IEEE80211_FCTL_STYPE;
+    return (fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_DATA && (stype == 0x0040 || stype == 0x00c0);
+}
+
+static inline int ieee80211_is_data_qos(uint16_t fc) {
+    return (fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_DATA && (fc & 0x0080);
+}
+
+static inline int _ieee80211_is_robust_mgmt_frame(const void *hdr) {
+    return 0;
+}
+
+static inline int ieee80211_has_protected(uint16_t fc) {
+    return fc & 0x4000;
+}
+
+// Correção do parâmetro const void* para evitar warnings com struct ieee80211_hdr*
+static __always_inline uint8_t *ieee80211_get_qos_ctl(const void *hdr) {
     static uint8_t dummy_qos[2] = {0, 0};
     return dummy_qos;
 }
@@ -1447,7 +1486,6 @@ struct ieee80211_key_conf {
     uint8_t keylen;
 };
 
-// Expandido: ieee80211_tx_info corrigido com suporte a flags e sub-struct control
 struct ieee80211_tx_info {
     uint32_t flags;
     struct {
@@ -1482,7 +1520,7 @@ enum nl80211_channel_type {
 struct ht_capability {
     uint16_t cap;
     struct { uint8_t rx_mask[2]; } mcs;
-    uint8_t ampdu_density; // Adicionado campo faltante (Resolve o erro 555)
+    uint8_t ampdu_density;
 };
 
 struct ieee80211_sta {
@@ -1493,12 +1531,35 @@ struct ieee80211_sta {
     struct list_head list;
     uint32_t supp_rates[2]; 
     struct ht_capability ht_cap;
-    struct ieee80211_vif *vif; // Link do VIF interno para compatibilidade estrutural
+    struct ieee80211_vif *vif;
 };
 
-// Stub de busca de estações associadas (Resolve o erro de conversão implicita de int para struct*)
 static __always_inline struct ieee80211_sta *ieee80211_find_sta(struct ieee80211_vif *vif, const uint8_t *mgm_addr) {
     return NULL;
+}
+
+// Helpers de rede adicionados para o trx.c
+#define PCI_DMA_TODEVICE 1
+
+static inline int is_multicast_ether_addr(const uint8_t *addr) {
+    return addr[0] & 0x01;
+}
+
+static inline int is_broadcast_ether_addr(const uint8_t *addr) {
+    return (addr[0] & addr[1] & addr[2] & addr[3] & addr[4] & addr[5]) == 0xFF;
+}
+
+static inline int ether_addr_equal(const uint8_t *addr1, const uint8_t *addr2) {
+    return (addr1[0] == addr2[0] && addr1[1] == addr2[1] && addr1[2] == addr2[2] &&
+            addr1[3] == addr2[3] && addr1[4] == addr2[4] && addr1[5] == addr2[5]);
+}
+
+static inline uint64_t pci_map_single(void *pdev, void *ptr, size_t size, int direction) {
+    return (uint64_t)(uintptr_t)ptr;
+}
+
+static inline int pci_dma_mapping_error(void *pdev, uint64_t dma_addr) {
+    return 0;
 }
 
 /*******************************************************************************
