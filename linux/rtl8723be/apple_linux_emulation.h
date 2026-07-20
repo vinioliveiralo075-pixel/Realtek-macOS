@@ -1355,6 +1355,16 @@ enum nl80211_band {
 #define IEEE80211_HT_MPDU_DENSITY_16     7
 #define IEEE80211_HT_MCS_TX_DEFINED      0x01
 
+// Stubs de enums e structs para sanar warnings de visibilidade do base.h e regd.h
+enum ieee80211_smps_mode {
+    IEEE80211_SMPS_STATIC,
+    IEEE80211_SMPS_DYNAMIC,
+    IEEE80211_SMPS_DISABLED,
+};
+
+struct wiphy { int dummy; };
+struct regulatory_request { int dummy; };
+
 struct net_device {
     char name[16];
     unsigned char dev_addr[6];
@@ -1376,6 +1386,19 @@ struct ieee80211_rate {
     unsigned char hw_value;
 };
 
+// Nova estrutura de banda suportada exigida pelo dicionário estático do base.c
+struct ieee80211_supported_band {
+    enum nl80211_band band;
+    struct ieee80211_channel *channels;
+    int n_channels;
+    struct ieee80211_rate *bitrates;
+    int n_bitrates;
+    struct {
+        int dummy;
+    } ht_cap;
+};
+
+// Estrutura expandida para suportar as atribuições de rx_mask e rx_highest do base.c
 struct ieee80211_sta_ht_cap {
     unsigned char ht_supported;
     unsigned short cap;
@@ -1383,6 +1406,8 @@ struct ieee80211_sta_ht_cap {
     unsigned char ampdu_density;
     struct {
         unsigned char tx_params;
+        unsigned char rx_mask[10];
+        uint16_t rx_highest;
     } mcs;
 };
 
