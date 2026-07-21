@@ -165,10 +165,6 @@ enum nl80211_iftype {
     NL80211_IFTYPE_P2P_DEVICE,
 };
 
-struct ieee80211_supported_band {
-    int dummy_band_data;
-};
-
 /*******************************************************************************
  * 5. COMPREHENSIVE ERROR CODES REALIGNMENT MATRIX
  *******************************************************************************/
