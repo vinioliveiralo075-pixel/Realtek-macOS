@@ -1358,7 +1358,13 @@ enum ieee80211_smps_mode {
     IEEE80211_SMPS_DISABLED,
 };
 
-struct wiphy { int dummy; };
+struct wiphy_vendor_command; // Forward declaration
+
+struct wiphy {
+    const struct wiphy_vendor_command *vendor_commands;
+    int n_vendor_commands;
+};
+
 struct regulatory_request { int dummy; };
 
 struct net_device {
@@ -1382,6 +1388,19 @@ struct ieee80211_rate {
     unsigned char hw_value;
 };
 
+// Estrutura expandida para suportar as atribuições de rx_mask e rx_highest do base.c
+struct ieee80211_sta_ht_cap {
+    unsigned char ht_supported;
+    unsigned short cap;
+    unsigned char ampdu_factor;
+    unsigned char ampdu_density;
+    struct {
+        unsigned char tx_params;
+        unsigned char rx_mask[10];
+        uint16_t rx_highest;
+    } mcs;
+};
+
 // Nova estrutura de banda suportada exigida pelo dicionário estático do base.c
 struct ieee80211_supported_band {
     enum nl80211_band band;
@@ -1389,9 +1408,7 @@ struct ieee80211_supported_band {
     int n_channels;
     struct ieee80211_rate *bitrates;
     int n_bitrates;
-    struct {
-        int dummy;
-    } ht_cap;
+    struct ieee80211_sta_ht_cap ht_cap; // Corrigido de struct dummy para struct ieee80211_sta_ht_cap
 };
 
 /* --- VHT Support Definitions --- */
@@ -1410,24 +1427,17 @@ struct ieee80211_supported_band {
 #define IEEE80211_VHT_MCS_SUPPORT_0_9                    0
 #define IEEE80211_VHT_MCS_NOT_SUPPORTED                  3
 
+struct ieee80211_vht_mcs {
+    uint16_t rx_mcs_map;
+    uint16_t rx_highest;
+    uint16_t tx_mcs_map;
+    uint16_t tx_highest;
+};
+
 struct ieee80211_sta_vht_cap {
     bool vht_supported;
     uint32_t cap;
-    uint16_t rx_mcs_map;
-    uint16_t tx_mcs_map;
-};
-
-// Estrutura expandida para suportar as atribuições de rx_mask e rx_highest do base.c
-struct ieee80211_sta_ht_cap {
-    unsigned char ht_supported;
-    unsigned short cap;
-    unsigned char ampdu_factor;
-    unsigned char ampdu_density;
-    struct {
-        unsigned char tx_params;
-        unsigned char rx_mask[10];
-        uint16_t rx_highest;
-    } mcs;
+    struct ieee80211_vht_mcs vht_mcs;
 };
 
 struct ieee80211_chan_def {
@@ -1439,6 +1449,7 @@ struct ieee80211_chan_def {
 
 struct ieee80211_hw {
     void *priv;
+    struct wiphy *wiphy; // Adicionado ponteiro para wiphy
     struct {
         struct ieee80211_chan_def chandef;
     } conf;
@@ -1453,6 +1464,26 @@ struct ieee80211_hdr {
     uint16_t seq_ctrl;
     uint8_t addr4[6];
 } __attribute__((packed));
+
+/* --- Vendor Commands & Wiphy Helpers --- */
+
+#define WIPHY_VENDOR_CMD_NEED_WDEV    0x01
+#define WIPHY_VENDOR_CMD_NEED_NETDEV  0x02
+
+struct wireless_dev {
+    int dummy;
+};
+
+struct wiphy_vendor_command {
+    uint32_t info;
+    uint32_t flags;
+    int (*doit)(struct wiphy *wiphy, struct wireless_dev *wdev, const void *data, int len);
+};
+
+/* Macro/Inline para converter wiphy em ieee80211_hw */
+static inline struct ieee80211_hw *wiphy_to_ieee80211_hw(struct wiphy *wiphy) {
+    return (struct ieee80211_hw *)wiphy;
+}
 
 // Helpers para extração de Endereços MAC (SA = Source, DA = Destination)
 static inline const uint8_t *ieee80211_get_SA(const struct ieee80211_hdr *hdr) {
