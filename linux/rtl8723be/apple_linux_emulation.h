@@ -1177,7 +1177,6 @@ static __always_inline void dev_set_drvdata(struct device *dev, void *data)
 /*******************************************************************************
  * 21. EXHAUSTIVE PCI EXPRESS BUS SUBSYSTEM EMULATION (MAPPED WITH REALTEK IDS)
  *******************************************************************************/
-/* Aponta direto para a sua Seção 1, evitando duplicar o valor 0x10EC */
 #ifndef PCI_VENDOR_ID_REALTEK
 #define PCI_VENDOR_ID_REALTEK REALTEK_PCI_VENDOR_ID
 #endif
@@ -1307,7 +1306,7 @@ static __always_inline void iounmap(void *addr)
  * 23. IEEE 802.11 / MAC80211 WIRELESS CORE NETWORK INFRASTRUCTURE
  *******************************************************************************/
 
-// Macros de Sinalização e Flags de Rx/Tx exigidas pelo trx.c
+// Macros de Sinalização e Flags de Rx/Tx
 #define RX_FLAG_FAILED_FCS_CRC   (1 << 0)
 #define RX_FLAG_MACTIME_START    (1 << 1)
 #define RX_FLAG_DECRYPTED        (1 << 2)
@@ -1336,7 +1335,7 @@ static __always_inline void iounmap(void *addr)
 #define WLAN_CIPHER_SUITE_TKIP   0x000fc002
 #define WLAN_CIPHER_SUITE_CCMP   0x000fc004
 
-// Flags de Hardware IEEE 802.11 (Exigidas pelo base.c)
+// Flags de Hardware IEEE 802.11 e Power Save (Exigidas pelo base.c)
 #define SIGNAL_DBM              (1 << 0)
 #define RX_INCLUDES_FCS         (1 << 1)
 #define AMPDU_AGGREGATION       (1 << 2)
@@ -1346,8 +1345,20 @@ static __always_inline void iounmap(void *addr)
 #define SUPPORTS_TX_FRAG        (1 << 6)
 #define SUPPORT_FAST_XMIT       (1 << 7)
 #define SUPPORTS_AMSDU_IN_AMPDU (1 << 8)
+#define SUPPORTS_PS             (1 << 9)
+#define PS_NULLFUNC_STACK       (1 << 10)
+#define SUPPORTS_DYNAMIC_PS     (1 << 11)
 
-// Flags de Banda e Canal exigidas pelo Clang
+// Flags do Wiphy
+#define WIPHY_FLAG_IBSS_RSN               (1 << 0)
+#define WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL  (1 << 1)
+
+// Constantes de Limites
+#define AC_MAX                  4
+#define MAX_LISTEN_INTERVAL     10
+#define MAX_RATE_TRIES          4
+
+// Flags de Banda e Canal
 enum nl80211_band {
     NL80211_BAND_2GHZ,
     NL80211_BAND_5GHZ,
@@ -1368,8 +1379,6 @@ enum ieee80211_smps_mode {
     IEEE80211_SMPS_DYNAMIC,
     IEEE80211_SMPS_DISABLED,
 };
-
-struct wiphy_vendor_command; // Forward declaration
 
 struct regulatory_request { int dummy; };
 
@@ -1394,7 +1403,6 @@ struct ieee80211_rate {
     unsigned char hw_value;
 };
 
-// Estrutura expandida para suportar as atribuições de rx_mask e rx_highest do base.c
 struct ieee80211_sta_ht_cap {
     unsigned char ht_supported;
     unsigned short cap;
@@ -1435,7 +1443,6 @@ struct ieee80211_sta_vht_cap {
     struct ieee80211_vht_mcs vht_mcs;
 };
 
-// Nova estrutura de banda suportada contendo vht_cap
 struct ieee80211_supported_band {
     enum nl80211_band band;
     struct ieee80211_channel *channels;
@@ -1443,13 +1450,33 @@ struct ieee80211_supported_band {
     struct ieee80211_rate *bitrates;
     int n_bitrates;
     struct ieee80211_sta_ht_cap ht_cap;
-    struct ieee80211_sta_vht_cap vht_cap; // Corrigido para suporte VHT no base.c
+    struct ieee80211_sta_vht_cap vht_cap;
+};
+
+/* Forward Declarations & Vendor Commands */
+#define WIPHY_VENDOR_CMD_NEED_WDEV    0x01
+#define WIPHY_VENDOR_CMD_NEED_NETDEV  0x02
+
+struct wireless_dev {
+    int dummy;
+};
+
+struct wiphy;
+
+struct wiphy_vendor_command {
+    uint32_t vendor_id;
+    uint32_t subcmd;
+    uint32_t flags;
+    int (*doit)(struct wiphy *wiphy, struct wireless_dev *wdev, const void *data, int len);
 };
 
 struct wiphy {
     const struct wiphy_vendor_command *vendor_commands;
     int n_vendor_commands;
-    struct ieee80211_supported_band *bands[3]; // Corrigido para suportar o acesso hw->wiphy->bands[]
+    struct ieee80211_supported_band *bands[3];
+    uint32_t interface_modes;
+    uint32_t flags;
+    uint32_t rts_threshold;
 };
 
 struct ieee80211_chan_def {
@@ -1465,6 +1492,11 @@ struct ieee80211_hw {
     struct {
         struct ieee80211_chan_def chandef;
     } conf;
+    uint8_t queues;
+    uint32_t extra_tx_headroom;
+    uint32_t max_listen_interval;
+    uint32_t max_rate_tries;
+    size_t sta_data_size;
 };
 
 static inline void ieee80211_hw_set(struct ieee80211_hw *hw, uint32_t cap) {
@@ -1481,27 +1513,12 @@ struct ieee80211_hdr {
     uint8_t addr4[6];
 } __attribute__((packed));
 
-/* --- Vendor Commands & Wiphy Helpers --- */
-
-#define WIPHY_VENDOR_CMD_NEED_WDEV    0x01
-#define WIPHY_VENDOR_CMD_NEED_NETDEV  0x02
-
-struct wireless_dev {
-    int dummy;
-};
-
-struct wiphy_vendor_command {
-    uint32_t info;
-    uint32_t flags;
-    int (*doit)(struct wiphy *wiphy, struct wireless_dev *wdev, const void *data, int len);
-};
-
 /* Macro/Inline para converter wiphy em ieee80211_hw */
 static inline struct ieee80211_hw *wiphy_to_ieee80211_hw(struct wiphy *wiphy) {
     return (struct ieee80211_hw *)wiphy;
 }
 
-// Helpers para extração de Endereços MAC (SA = Source, DA = Destination)
+// Helpers para extração de Endereços MAC
 static inline const uint8_t *ieee80211_get_SA(const struct ieee80211_hdr *hdr) {
     return hdr->addr2;
 }
@@ -1540,7 +1557,6 @@ static inline int ieee80211_has_protected(uint16_t fc) {
     return fc & 0x4000;
 }
 
-// Correção do parâmetro const void* para evitar warnings com struct ieee80211_hdr*
 static __always_inline uint8_t *ieee80211_get_qos_ctl(const void *hdr) {
     static uint8_t dummy_qos[2] = {0, 0};
     return dummy_qos;
@@ -1629,8 +1645,14 @@ static __always_inline struct ieee80211_sta *ieee80211_find_sta(struct ieee80211
     return NULL;
 }
 
-// Helpers de rede adicionados para o trx.c
+// Helpers de rede adicionados
 #define PCI_DMA_TODEVICE 1
+
+static inline int is_valid_ether_addr(const uint8_t *addr) {
+    if (!addr) return 0;
+    if (addr[0] & 0x01) return 0; // Multicast / Broadcast
+    return (addr[0] | addr[1] | addr[2] | addr[3] | addr[4] | addr[5]) != 0;
+}
 
 static inline int is_multicast_ether_addr(const uint8_t *addr) {
     return addr[0] & 0x01;
