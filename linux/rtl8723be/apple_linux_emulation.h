@@ -1336,6 +1336,17 @@ static __always_inline void iounmap(void *addr)
 #define WLAN_CIPHER_SUITE_TKIP   0x000fc002
 #define WLAN_CIPHER_SUITE_CCMP   0x000fc004
 
+// Flags de Hardware IEEE 802.11 (Exigidas pelo base.c)
+#define SIGNAL_DBM              (1 << 0)
+#define RX_INCLUDES_FCS         (1 << 1)
+#define AMPDU_AGGREGATION       (1 << 2)
+#define CONNECTION_MONITOR      (1 << 3)
+#define MFP_CAPABLE             (1 << 4)
+#define REPORTS_TX_ACK_STATUS   (1 << 5)
+#define SUPPORTS_TX_FRAG        (1 << 6)
+#define SUPPORT_FAST_XMIT       (1 << 7)
+#define SUPPORTS_AMSDU_IN_AMPDU (1 << 8)
+
 // Flags de Banda e Canal exigidas pelo Clang
 enum nl80211_band {
     NL80211_BAND_2GHZ,
@@ -1360,11 +1371,6 @@ enum ieee80211_smps_mode {
 
 struct wiphy_vendor_command; // Forward declaration
 
-struct wiphy {
-    const struct wiphy_vendor_command *vendor_commands;
-    int n_vendor_commands;
-};
-
 struct regulatory_request { int dummy; };
 
 struct net_device {
@@ -1374,7 +1380,7 @@ struct net_device {
     long unsigned int state;
 };
 
-// Estruturas Wireless que estavam faltando e geravam os erros no base.c
+// Estruturas Wireless
 struct ieee80211_channel {
     int band;
     int center_freq;
@@ -1401,18 +1407,7 @@ struct ieee80211_sta_ht_cap {
     } mcs;
 };
 
-// Nova estrutura de banda suportada exigida pelo dicionário estático do base.c
-struct ieee80211_supported_band {
-    enum nl80211_band band;
-    struct ieee80211_channel *channels;
-    int n_channels;
-    struct ieee80211_rate *bitrates;
-    int n_bitrates;
-    struct ieee80211_sta_ht_cap ht_cap; // Corrigido de struct dummy para struct ieee80211_sta_ht_cap
-};
-
 /* --- VHT Support Definitions --- */
-
 #define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454          0x00000002
 #define IEEE80211_VHT_CAP_SHORT_GI_80                    0x00000020
 #define IEEE80211_VHT_CAP_TXSTBC                         0x00000080
@@ -1440,6 +1435,23 @@ struct ieee80211_sta_vht_cap {
     struct ieee80211_vht_mcs vht_mcs;
 };
 
+// Nova estrutura de banda suportada contendo vht_cap
+struct ieee80211_supported_band {
+    enum nl80211_band band;
+    struct ieee80211_channel *channels;
+    int n_channels;
+    struct ieee80211_rate *bitrates;
+    int n_bitrates;
+    struct ieee80211_sta_ht_cap ht_cap;
+    struct ieee80211_sta_vht_cap vht_cap; // Corrigido para suporte VHT no base.c
+};
+
+struct wiphy {
+    const struct wiphy_vendor_command *vendor_commands;
+    int n_vendor_commands;
+    struct ieee80211_supported_band *bands[3]; // Corrigido para suportar o acesso hw->wiphy->bands[]
+};
+
 struct ieee80211_chan_def {
     struct {
         uint32_t center_freq;
@@ -1449,11 +1461,15 @@ struct ieee80211_chan_def {
 
 struct ieee80211_hw {
     void *priv;
-    struct wiphy *wiphy; // Adicionado ponteiro para wiphy
+    struct wiphy *wiphy;
     struct {
         struct ieee80211_chan_def chandef;
     } conf;
 };
+
+static inline void ieee80211_hw_set(struct ieee80211_hw *hw, uint32_t cap) {
+    // Stub de hardware flag setter para emulação macOS
+}
 
 struct ieee80211_hdr {
     uint16_t frame_control;
@@ -1554,7 +1570,7 @@ static __always_inline long wait_for_completion_timeout(struct completion *x, un
 
 static __always_inline int in_interrupt(void) { return 0; }
 
-// Estrutura de chaves de criptografia (Resolve o erro 561)
+// Estrutura de chaves de criptografia
 struct ieee80211_key_conf {
     uint32_t cipher;
     uint8_t keyidx;
