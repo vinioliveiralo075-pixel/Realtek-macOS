@@ -1394,6 +1394,29 @@ struct ieee80211_supported_band {
     } ht_cap;
 };
 
+/* --- VHT Support Definitions --- */
+
+#define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454          0x00000002
+#define IEEE80211_VHT_CAP_SHORT_GI_80                    0x00000020
+#define IEEE80211_VHT_CAP_TXSTBC                         0x00000080
+#define IEEE80211_VHT_CAP_RXSTBC_1                       0x00000100
+#define IEEE80211_VHT_CAP_SU_BEAMFORMER_CAPABLE          0x00000800
+#define IEEE80211_VHT_CAP_SU_BEAMFORMEE_CAPABLE          0x00001000
+#define IEEE80211_VHT_CAP_HTC_VHT                        0x00800000
+#define IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_MASK 0x03800000
+#define IEEE80211_VHT_CAP_RX_ANTENNA_PATTERN             0x10000000
+#define IEEE80211_VHT_CAP_TX_ANTENNA_PATTERN             0x20000000
+
+#define IEEE80211_VHT_MCS_SUPPORT_0_9                    0
+#define IEEE80211_VHT_MCS_NOT_SUPPORTED                  3
+
+struct ieee80211_sta_vht_cap {
+    bool vht_supported;
+    uint32_t cap;
+    uint16_t rx_mcs_map;
+    uint16_t tx_mcs_map;
+};
+
 // Estrutura expandida para suportar as atribuições de rx_mask e rx_highest do base.c
 struct ieee80211_sta_ht_cap {
     unsigned char ht_supported;
