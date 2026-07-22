@@ -17,7 +17,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Clone rtw88-stable (Cabeçalhos do Linux)
+      - name: Clone rtw88-stable
         run: |
           if [ ! -d "rtw88-stable" ]; then
             git clone --depth 1 https://github.com/thegwchr/rtw88-stable.git
@@ -34,7 +34,7 @@ jobs:
           done
           ls -lh *.bin || true
 
-      - name: Compilar Kext (Alvo: macOS 11.0+)
+      - name: Compilar Kext
         run: |
           export SDKPATH=$(xcrun --sdk macosx --show-sdk-path)
           export CFLAGS="-w -fmax-errors=1 -mmacosx-version-min=11.0 -isysroot $SDKPATH"
