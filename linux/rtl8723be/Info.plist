@@ -20,7 +20,7 @@
     <string>1.0.0</string>
     <key>IOKitPersonalities</key>
     <dict>
-        <!-- 1. SEU DRIVER REAL DA REALTEK -->
+        <!-- DRIVER REAL REALTEK RTL8723BE -->
         <key>RTL8723BE_MacDriver</key>
         <dict>
             <key>CFBundleIdentifier</key>
@@ -28,14 +28,16 @@
             <key>IOClass</key>
             <string>RTL8723BE_MacDriver</string>
             <key>IOMatchCategory</key>
-            <string>RTL8723BE_MacDriver</string>
+            <string>IODefaultMatchCategory</string>
             <key>IOPCIPrimaryMatch</key>
             <string>0xB72310EC</string>
+            <key>IOProbeScore</key>
+            <integer>2000</integer>
             <key>IOProviderClass</key>
             <string>IOPCIDevice</string>
         </dict>
         
-        <!-- 2. O PROVEDOR FANTASMA ITLWM PARA O HELIPORT EXECUTAR -->
+        <!-- PROVEDOR FANTASMA PARA INTERFACE DO HELIPORT -->
         <key>itlwm</key>
         <dict>
             <key>CFBundleIdentifier</key>
@@ -53,20 +55,21 @@
     <key>OSBundleLibraries</key>
     <dict>
         <key>com.apple.iokit.IONetworkingFamily</key>
-        <string>1.0.0b1</string>
+        <string>1.5.0</string>
         <key>com.apple.iokit.IOPCIFamily</key>
-        <string>1.0.0b1</string>
+        <string>1.7</string>
         <key>com.apple.kpi.bsd</key>
-        <string>21.0.0</string>
+        <string>8.0.0</string>
         <key>com.apple.kpi.iokit</key>
-        <string>21.0.0</string>
+        <string>8.0.0</string>
         <key>com.apple.kpi.libkern</key>
-        <string>21.0.0</string>
+        <string>8.0.0</string>
         <key>com.apple.kpi.mach</key>
-        <string>21.0.0</string>
-        <!-- Adicionado para permitir funções de rede legadas e de baixo nível em Kexts de terceiros -->
+        <string>8.0.0</string>
         <key>com.apple.kpi.unsupported</key>
-        <string>21.0.0</string>
+        <string>8.0.0</string>
     </dict>
+    <key>OSBundleRequired</key>
+    <string>Network-Root</string>
 </dict>
 </plist>
