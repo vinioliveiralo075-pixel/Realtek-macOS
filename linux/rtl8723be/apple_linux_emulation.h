@@ -668,7 +668,22 @@ static __always_inline void rcu_read_unlock(void)
 /*******************************************************************************
  * 13. ATOMIC VARIABLES COMPREHENSIVE INFRASTRUCTURE
  *******************************************************************************/
-typedef struct { volatile int counter; } atomic_t;
+
+/* Operações Atômicas de Emulação */
+#ifndef ATOMIC_T_DEFINED
+#define ATOMIC_T_DEFINED
+typedef struct {
+    volatile int counter;
+} atomic_t;
+#endif
+
+#ifndef ATOMIC_INC_RETURN_DEFINED
+#define ATOMIC_INC_RETURN_DEFINED
+static inline int atomic_inc_return(atomic_t *v) {
+    return __sync_add_and_fetch(&v->counter, 1);
+}
+#endif
+
 typedef struct { volatile long counter; } atomic_long_t;
 
 #define ATOMIC_INIT(i) { (i) }
@@ -1353,15 +1368,6 @@ struct iphdr {
     uint32_t saddr;
     uint32_t daddr;
 };
-
-/* Operações Atômicas de Emulação */
-typedef struct {
-    volatile int counter;
-} atomic_t;
-
-static inline int atomic_inc_return(atomic_t *v) {
-    return __sync_add_and_fetch(&v->counter, 1);
-}
 
 // Forward Declarations para evitar avisos de protótipo implícito
 struct sk_buff;
