@@ -1,4 +1,4 @@
-name: Build RTL8723BE Kext
+name: Build RealtekPCI-E_Version Kext
 
 on:
   push:
@@ -9,42 +9,67 @@ on:
 
 jobs:
   build-driver:
-    runs-on: macos-13
+    runs-on: macos-latest
 
     steps:
       - name: Checkout do Código
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-      - name: Selecionar Xcode 14.2
+      - name: Download dos Firmwares Realtek (Linux Kernel)
         run: |
-          sudo xcode-select -s /Applications/Xcode_14.2.app/Contents/Developer > /dev/null 2>&1
+          mkdir -p firmware
+          cd firmware
+          for fw in rtw8723b_fw.bin rtw8822b_fw.bin rtw8821c_fw.bin; do
+            if [ ! -s "$fw" ]; then
+              curl -sLO "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/rtw88/$fw" || true
+            fi
+          done
+          ls -lh *.bin || true
 
-      - name: Compilar Kext (Modo Silencioso - Apenas Erros)
+      - name: Compilar Kext (SDK Nativo - Target macOS 11.0)
         run: |
           cd linux
+          
+          # Pega o SDK nativo mais rápido da maquina virtual
           export SDKPATH=$(xcrun --sdk macosx --show-sdk-path)
           
-          # -w silencia avisos e -fmax-errors=1 trava no 1º erro para nao gerar logs gigantes
+          # Target fixado em macOS 11.0 (Big Sur) para rodar do Big Sur ao Ventura
+          # -w esconde os warnings e -fmax-errors=1 limita a exibição ao 1º erro
           export CFLAGS="-w -fmax-errors=1 -mmacosx-version-min=11.0 -isysroot $SDKPATH"
           
           make clean > /dev/null 2>&1
           
-          # O grep garante que APENAS linhas contendo erros reais apareçam no log
+          # Filtra para exibir EXCLUSIVAMENTE erros de compilação reais
           make -j$(sysctl -n hw.ncpu) 2>&1 | grep -E "error:|fatal error:" || true
           
-          # Verifica se a Kext foi gerada (renomeada para RealtekPCI-E_Version.kext)
           if [ ! -d "RealtekPCI-E_Version.kext" ]; then
-            echo "❌ Erro detectado! A compilação falhou."
+            echo "❌ Erro grave! A Kext não foi gerada."
             exit 1
           fi
 
-      - name: Compactar Kext
+      - name: Obter Git Hash e UUID
+        id: ids
+        run: |
+          echo "hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          KEXT_BIN="linux/RealtekPCI-E_Version.kext/Contents/MacOS/RealtekPCI-E_Version"
+          if [ -f "$KEXT_BIN" ]; then
+            UUID=$(dwarfdump --uuid "$KEXT_BIN" | awk '{print $2}')
+            echo "uuid=$UUID" >> $GITHUB_OUTPUT
+          else
+            echo "uuid=nobin" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Compactar Artefato (.zip)
         run: |
           cd linux
-          zip -r -1 ../RealtekPCI-E_Version.kext.zip RealtekPCI-E_Version.kext > /dev/null
+          ZIP_NAME="RealtekPCI-E_Version_${{ steps.ids.outputs.hash }}_${{ steps.ids.outputs.uuid }}.zip"
+          zip -r -1 "${{ runner.temp }}/$ZIP_NAME" RealtekPCI-E_Version.kext > /dev/null
+          echo "ZIP_PATH=${{ runner.temp }}/$ZIP_NAME" >> $GITHUB_ENV
 
-      - name: Upload do Artefato
+      - name: Upload do Artefato Final
         uses: actions/upload-artifact@v4
         with:
-          name: RealtekPCI-E_Version
-          path: RealtekPCI-E_Version.kext.zip
+          name: RealtekPCI-E_Version_${{ steps.ids.outputs.hash }}
+          path: ${{ env.ZIP_PATH }}
