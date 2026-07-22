@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-driver:
+  build:
     runs-on: macos-latest
 
     steps:
@@ -17,7 +17,13 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Download dos Firmwares Realtek (Linux Kernel)
+      - name: Clone rtw88-stable (Cabeçalhos do Linux)
+        run: |
+          if [ ! -d "rtw88-stable" ]; then
+            git clone --depth 1 https://github.com/thegwchr/rtw88-stable.git
+          fi
+
+      - name: Download Firmware Blobs
         run: |
           mkdir -p firmware
           cd firmware
@@ -28,24 +34,16 @@ jobs:
           done
           ls -lh *.bin || true
 
-      - name: Compilar Kext (SDK Nativo - Target macOS 11.0)
+      - name: Compilar Kext (Alvo: macOS 11.0+)
         run: |
-          cd linux
-          
-          # Pega o SDK nativo mais rápido da maquina virtual
           export SDKPATH=$(xcrun --sdk macosx --show-sdk-path)
-          
-          # Target fixado em macOS 11.0 (Big Sur) para rodar do Big Sur ao Ventura
-          # -w esconde os warnings e -fmax-errors=1 limita a exibição ao 1º erro
           export CFLAGS="-w -fmax-errors=1 -mmacosx-version-min=11.0 -isysroot $SDKPATH"
           
           make clean > /dev/null 2>&1
-          
-          # Filtra para exibir EXCLUSIVAMENTE erros de compilação reais
-          make -j$(sysctl -n hw.ncpu) 2>&1 | grep -E "error:|fatal error:" || true
+          make all 2>&1 | grep -E "error:|fatal error:" || true
           
           if [ ! -d "RealtekPCI-E_Version.kext" ]; then
-            echo "❌ Erro grave! A Kext não foi gerada."
+            echo "❌ Erro na compilação do driver."
             exit 1
           fi
 
@@ -53,7 +51,7 @@ jobs:
         id: ids
         run: |
           echo "hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          KEXT_BIN="linux/RealtekPCI-E_Version.kext/Contents/MacOS/RealtekPCI-E_Version"
+          KEXT_BIN="RealtekPCI-E_Version.kext/Contents/MacOS/RealtekPCI-E_Version"
           if [ -f "$KEXT_BIN" ]; then
             UUID=$(dwarfdump --uuid "$KEXT_BIN" | awk '{print $2}')
             echo "uuid=$UUID" >> $GITHUB_OUTPUT
@@ -63,13 +61,12 @@ jobs:
 
       - name: Compactar Artefato (.zip)
         run: |
-          cd linux
           ZIP_NAME="RealtekPCI-E_Version_${{ steps.ids.outputs.hash }}_${{ steps.ids.outputs.uuid }}.zip"
           zip -r -1 "${{ runner.temp }}/$ZIP_NAME" RealtekPCI-E_Version.kext > /dev/null
           echo "ZIP_PATH=${{ runner.temp }}/$ZIP_NAME" >> $GITHUB_ENV
 
-      - name: Upload do Artefato Final
+      - name: Upload do Artefato
         uses: actions/upload-artifact@v4
         with:
-          name: RealtekPCI-E_Version_${{ steps.ids.outputs.hash }}
+          name: RealtekPCI-E_Version_${{ steps.ids.outputs.hash }}_${{ steps.ids.outputs.uuid }}
           path: ${{ env.ZIP_PATH }}
