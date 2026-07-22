@@ -1,75 +1,46 @@
-name: Build RealtekPCI-E_Version
+name: Build Realtek Kext
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ "main", "master" ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
-  build-kext:
+  build:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout do Código
+      # 1. Baixa o código do repositório
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Compilar Driver (Apenas Erros)
+      # 2. Garante as pastas e symlinks necessários
+      - name: Prepare symlinks
         run: |
-          # Detecta o SDK nativo do macOS
-          export SDKPATH=$(xcrun --sdk macosx --show-sdk-path)
-          
-          # Target de compatibilidade do macOS 11 (Big Sur) ao macOS 13 (Ventura)
-          export CFLAGS="-w -fmax-errors=1 -mmacosx-version-min=11.0 -isysroot $SDKPATH"
-          
-          # Procura o Makefile onde quer que ele esteja no projeto e roda a compilação
-          if [ -f "Makefile" ] || [ -f "makefile" ]; then
-            make clean || true
-            make all
-          elif [ -f "linux/Makefile" ] || [ -f "linux/makefile" ]; then
-            cd linux
-            make clean || true
-            make all
+          ln -sf rtl8723be rtl8723ae || true
+
+      # 3. Compila o projeto usando o Xcode
+      - name: Build Kext
+        run: |
+          xcodebuild -project *.xcodeproj -scheme itlwm -configuration Release build || make
+
+      # 4. Compacta o resultado em ZIP
+      - name: Compress Artifacts
+        run: |
+          mkdir -p build/Artifacts
+          if [ -d "build/Release/itlwm.kext" ]; then
+            cd build/Release && zip -r ../Artifacts/itlwm-Realtek.zip itlwm.kext
           else
-            echo "❌ Nenhum Makefile encontrado na raiz ou na pasta linux!"
-            exit 1
+            zip -r build/Artifacts/itlwm-Realtek.zip *.kext || echo "Verifique a pasta de saída do build"
           fi
 
-      - name: Obter Identificação (Git Hash e UUID)
-        id: info
-        run: |
-          echo "hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          
-          # Procura o binário gerado para extrair o UUID
-          KEXT_PATH=$(find . -name "RealtekPCI-E_Version" -type f | head -n 1)
-          if [ -n "$KEXT_PATH" ]; then
-            UUID=$(dwarfdump --uuid "$KEXT_PATH" | awk '{print $2}')
-            echo "uuid=$UUID" >> $GITHUB_OUTPUT
-          else
-            echo "uuid=nobin" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Compactar Kext para Artefato
-        run: |
-          # Localiza a pasta da Kext gerada
-          BUNDLE_PATH=$(find . -name "RealtekPCI-E_Version.kext" -type d | head -n 1)
-          
-          if [ -z "$BUNDLE_PATH" ]; then
-            echo "❌ Erro: RealtekPCI-E_Version.kext não foi encontrada!"
-            exit 1
-          fi
-          
-          ZIP_NAME="RealtekPCI-E_Version_${{ steps.info.outputs.hash }}_${{ steps.info.outputs.uuid }}.zip"
-          
-          # Copia e compacta
-          zip -r -1 "${{ runner.temp }}/$ZIP_NAME" "$BUNDLE_PATH" > /dev/null
-          echo "ZIP_PATH=${{ runner.temp }}/$ZIP_NAME" >> $GITHUB_ENV
-
-      - name: Upload do Artefato Final
+      # 5. Disponibiliza o ZIP para download na aba Actions
+      - name: Upload Kext Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RealtekPCI-E_Version_${{ steps.info.outputs.hash }}
-          path: ${{ env.ZIP_PATH }}
+          name: Realtek-WiFi-Kext
+          path: build/Artifacts/*.zip
