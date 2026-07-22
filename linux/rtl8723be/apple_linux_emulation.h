@@ -1306,6 +1306,18 @@ static __always_inline void iounmap(void *addr)
  * 23. IEEE 802.11 / MAC80211 WIRELESS CORE NETWORK INFRASTRUCTURE
  *******************************************************************************/
 
+#ifndef ETH_ALEN
+#define ETH_ALEN 6
+#endif
+
+#ifndef ETH_P_IP
+#define ETH_P_IP 0x0800
+#endif
+
+#ifndef IPPROTO_UDP
+#define IPPROTO_UDP 17
+#endif
+
 // Macros de Sinalização e Flags de Rx/Tx
 #define RX_FLAG_FAILED_FCS_CRC    (1 << 0)
 #define RX_FLAG_MACTIME_START     (1 << 1)
@@ -1323,13 +1335,20 @@ static __always_inline void iounmap(void *addr)
 #define IEEE80211_FTYPE_MGMT        0x0000
 #define IEEE80211_FTYPE_CTL         0x0004
 #define IEEE80211_FTYPE_DATA        0x0008
+
 #define IEEE80211_FCTL_STYPE        0x00f0
 #define IEEE80211_STYPE_BEACON      0x0080
+#define IEEE80211_STYPE_PROBE_REQ   0x0040
+#define IEEE80211_STYPE_AUTH        0x00b0
+#define IEEE80211_STYPE_ACTION      0x00d0
+
 #define IEEE80211_FCTL_TODS         0x0100
 #define IEEE80211_FCTL_FROMDS       0x0200
 #define IEEE80211_QOS_CTL_TID_MASK  0x000f
 
-// Flags de TX Rate Control que faltavam para o base.c
+#define IEEE80211_ADDBA_PARAM_TID_MASK 0x003c
+
+// Flags de TX Rate Control
 #define IEEE80211_TX_RC_USE_SHORT_PREAMBLE (1 << 0)
 #define IEEE80211_TX_RC_SHORT_GI           (1 << 1)
 #define IEEE80211_TX_RC_USE_CTS_PROTECT    (1 << 2)
@@ -1337,7 +1356,7 @@ static __always_inline void iounmap(void *addr)
 #define IEEE80211_TX_RC_MCS                (1 << 4)
 #define IEEE80211_TX_RC_VHT_MCS            (1 << 5)
 
-// Identificadores de Criptografia (Cipher Suites)
+// Identificadores de Criptografia
 #define WLAN_CIPHER_SUITE_WEP40  0x000fc001
 #define WLAN_CIPHER_SUITE_WEP104 0x000fc005
 #define WLAN_CIPHER_SUITE_TKIP   0x000fc002
@@ -1361,23 +1380,17 @@ static __always_inline void iounmap(void *addr)
 #define WIPHY_FLAG_IBSS_RSN                (1 << 0)
 #define WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL  (1 << 1)
 
-// Constantes de Limites
 #define AC_MAX                  4
 #define MAX_LISTEN_INTERVAL     10
 #define MAX_RATE_TRIES          4
 
-#ifndef ETH_ALEN
-#define ETH_ALEN 6
-#endif
-
-// Flags de Banda e Canal
 enum nl80211_band {
     NL80211_BAND_2GHZ,
     NL80211_BAND_5GHZ,
     NL80211_BAND_6GHZ,
 };
-#define IEEE80211_CHAN_NO_HT40MINUS     0x00000020
 
+#define IEEE80211_CHAN_NO_HT40MINUS     0x00000020
 #define IEEE80211_HT_CAP_SUP_WIDTH_20_40 0x0002
 #define IEEE80211_HT_CAP_DSSSCCK40       0x0004
 #define IEEE80211_HT_CAP_MAX_AMSDU       0x0008
@@ -1385,7 +1398,6 @@ enum nl80211_band {
 #define IEEE80211_HT_MPDU_DENSITY_16     7
 #define IEEE80211_HT_MCS_TX_DEFINED      0x01
 
-// Stubs de enums e structs
 enum ieee80211_smps_mode {
     IEEE80211_SMPS_STATIC,
     IEEE80211_SMPS_DYNAMIC,
@@ -1401,7 +1413,6 @@ struct net_device {
     long unsigned int state;
 };
 
-// Estruturas Wireless
 struct ieee80211_channel {
     int band;
     int center_freq;
@@ -1427,7 +1438,6 @@ struct ieee80211_sta_ht_cap {
     } mcs;
 };
 
-/* --- VHT Support Definitions --- */
 #define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454           0x00000002
 #define IEEE80211_VHT_CAP_SHORT_GI_80                     0x00000020
 #define IEEE80211_VHT_CAP_TXSTBC                          0x00000080
@@ -1467,7 +1477,6 @@ struct ieee80211_supported_band {
     struct ieee80211_sta_vht_cap vht_cap;
 };
 
-/* Forward Declarations & Vendor Commands */
 #define WIPHY_VENDOR_CMD_NEED_WDEV    0x01
 #define WIPHY_VENDOR_CMD_NEED_NETDEV  0x02
 
@@ -1477,11 +1486,13 @@ struct wireless_dev {
 
 struct wiphy;
 
+/* CORREÇÃO DO VENDOR COMMAND (Evita erro de array e inicialização de struct) */
 struct wiphy_vendor_command {
     uint32_t vendor_id;
     uint32_t subcmd;
     uint32_t flags;
     int (*doit)(struct wiphy *wiphy, struct wireless_dev *wdev, const void *data, int len);
+    int (*dumpit)(struct wiphy *wiphy, struct wireless_dev *wdev, void *skb, void *cb);
 };
 
 struct wiphy {
@@ -1515,9 +1526,7 @@ struct ieee80211_hw {
     size_t sta_data_size;
 };
 
-static inline void ieee80211_hw_set(struct ieee80211_hw *hw, uint32_t cap) {
-    // Stub de hardware flag setter para emulação macOS
-}
+static inline void ieee80211_hw_set(struct ieee80211_hw *hw, uint32_t cap) {}
 
 struct ieee80211_hdr {
     uint16_t frame_control;
@@ -1529,12 +1538,34 @@ struct ieee80211_hdr {
     uint8_t addr4[6];
 } __attribute__((packed));
 
-/* Macro/Inline para converter wiphy em ieee80211_hw */
+/* ESTRUTURA COMPLETA IEEE80211_MGMT PARA EVITAR INCOMPLETE TYPE */
+struct ieee80211_mgmt {
+    uint16_t frame_control;
+    uint16_t duration;
+    uint8_t da[6];
+    uint8_t sa[6];
+    uint8_t bssid[6];
+    uint16_t seq_ctrl;
+    union {
+        struct {
+            uint8_t category;
+            uint8_t action;
+            union {
+                struct {
+                    uint8_t dialog_token;
+                    uint16_t capab;
+                    uint16_t timeout;
+                    uint16_t starting_seqnum;
+                } addba_req;
+            } u;
+        } action;
+    } u;
+} __attribute__((packed));
+
 static inline struct ieee80211_hw *wiphy_to_ieee80211_hw(struct wiphy *wiphy) {
     return (struct ieee80211_hw *)wiphy;
 }
 
-// Helpers para extração de Endereços MAC
 static inline const uint8_t *ieee80211_get_SA(const struct ieee80211_hdr *hdr) {
     return hdr->addr2;
 }
@@ -1543,7 +1574,7 @@ static inline const uint8_t *ieee80211_get_DA(const struct ieee80211_hdr *hdr) {
     return hdr->addr1;
 }
 
-// Funções de decodificação de Frame Control (fc) do 802.11
+// Helpers de decodificação de pacotes 802.11
 static inline int ieee80211_is_beacon(uint16_t fc) {
     return (fc & (IEEE80211_FCTL_FTYPE | IEEE80211_FCTL_STYPE)) == (IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_BEACON);
 }
@@ -1554,6 +1585,22 @@ static inline int ieee80211_is_mgmt(uint16_t fc) {
 
 static inline int ieee80211_is_ctl(uint16_t fc) {
     return (fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_CTL;
+}
+
+static inline int ieee80211_is_data(uint16_t fc) {
+    return (fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_DATA;
+}
+
+static inline int ieee80211_is_auth(uint16_t fc) {
+    return (fc & (IEEE80211_FCTL_FTYPE | IEEE80211_FCTL_STYPE)) == (IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_AUTH);
+}
+
+static inline int ieee80211_is_probe_req(uint16_t fc) {
+    return (fc & (IEEE80211_FCTL_FTYPE | IEEE80211_FCTL_STYPE)) == (IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_PROBE_REQ);
+}
+
+static inline int ieee80211_is_action(uint16_t fc) {
+    return (fc & (IEEE80211_FCTL_FTYPE | IEEE80211_FCTL_STYPE)) == (IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_ACTION);
 }
 
 static inline int ieee80211_is_nullfunc(uint16_t fc) {
@@ -1573,6 +1620,10 @@ static inline int ieee80211_has_protected(uint16_t fc) {
     return fc & 0x4000;
 }
 
+static inline u8 ieee80211_get_hdrlen_from_skb(struct sk_buff *skb) {
+    return sizeof(struct ieee80211_hdr);
+}
+
 static __always_inline uint8_t *ieee80211_get_qos_ctl(const void *hdr) {
     static uint8_t dummy_qos[2] = {0, 0};
     return dummy_qos;
@@ -1589,7 +1640,7 @@ struct ieee80211_tx_queue_params {
     unsigned int cw_max;
 };
 
-/* Sincronização de Threads (Completion Pipeline) */
+/* Sincronização de Threads */
 struct completion {
     unsigned int done;
     spinlock_t wait_lock;
@@ -1602,7 +1653,6 @@ static __always_inline long wait_for_completion_timeout(struct completion *x, un
 
 static __always_inline int in_interrupt(void) { return 0; }
 
-// Estrutura de chaves de criptografia e taxa de TX
 struct ieee80211_key_conf {
     uint32_t cipher;
     uint8_t keyidx;
@@ -1626,6 +1676,11 @@ struct ieee80211_tx_info {
     } status;
 };
 
+static inline struct ieee80211_rate *ieee80211_get_tx_rate(struct ieee80211_hw *hw, struct ieee80211_tx_info *info) {
+    static struct ieee80211_rate dummy_rate;
+    return &dummy_rate;
+}
+
 static inline int ieee80211_rate_get_vht_nss(const struct ieee80211_tx_rate *r) {
     return (r->idx >> 4) + 1;
 }
@@ -1644,6 +1699,12 @@ struct ieee80211_rx_status {
     uint64_t mactime;
     int8_t signal;
 };
+
+#define IEEE80211_SKB_RXCB(skb) ((struct ieee80211_rx_status *)((skb)->cb))
+
+static inline void ieee80211_rx_irqsafe(struct ieee80211_hw *hw, struct sk_buff *skb) {
+    if (skb) dev_kfree_skb_any(skb);
+}
 
 struct urb { int dummy; };
 struct seq_file { int dummy; };
@@ -1681,12 +1742,11 @@ static __always_inline struct ieee80211_sta *ieee80211_find_sta(struct ieee80211
     return NULL;
 }
 
-// Helpers de rede adicionados
 #define PCI_DMA_TODEVICE 1
 
 static inline int is_valid_ether_addr(const uint8_t *addr) {
     if (!addr) return 0;
-    if (addr[0] & 0x01) return 0; // Multicast / Broadcast
+    if (addr[0] & 0x01) return 0;
     return (addr[0] | addr[1] | addr[2] | addr[3] | addr[4] | addr[5]) != 0;
 }
 
@@ -1701,6 +1761,10 @@ static inline int is_broadcast_ether_addr(const uint8_t *addr) {
 static inline int ether_addr_equal(const uint8_t *addr1, const uint8_t *addr2) {
     return (addr1[0] == addr2[0] && addr1[1] == addr2[1] && addr1[2] == addr2[2] &&
             addr1[3] == addr2[3] && addr1[4] == addr2[4] && addr1[5] == addr2[5]);
+}
+
+static inline u16 be16_to_cpup(const __be16 *p) {
+    return p ? ntohs(*p) : 0;
 }
 
 static inline uint64_t pci_map_single(void *pdev, void *ptr, size_t size, int direction) {
