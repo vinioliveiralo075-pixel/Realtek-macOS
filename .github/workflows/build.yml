@@ -1,4 +1,4 @@
-name: Build RealtekPCI-E_Version Kext
+name: Build RealtekPCI-E_Version
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-kext:
     runs-on: macos-latest
 
     steps:
@@ -17,48 +17,59 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Download Firmwares Realtek (RTL8723BE)
+      - name: Compilar Driver (Apenas Erros)
         run: |
-          mkdir -p firmware
-          cd firmware
-          # Baixa os firmwares do repositório oficial do Larry Finger / Linux Kernel
-          curl -sLO "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/rtlwifi/rtl8723befw.bin" || true
-          curl -sLO "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/rtlwifi/rtl8723befw_36.bin" || true
-          ls -lh *.bin || true
-
-      - name: Compilar Kext (RTL8723BE)
-        run: |
+          # Detecta o SDK nativo do macOS
           export SDKPATH=$(xcrun --sdk macosx --show-sdk-path)
+          
+          # Target de compatibilidade do macOS 11 (Big Sur) ao macOS 13 (Ventura)
           export CFLAGS="-w -fmax-errors=1 -mmacosx-version-min=11.0 -isysroot $SDKPATH"
           
-          make clean || true
-          make all
-          
-          if [ ! -d "RealtekPCI-E_Version.kext" ]; then
-            echo "❌ Erro grave! A Kext RealtekPCI-E_Version.kext não foi gerada."
+          # Procura o Makefile onde quer que ele esteja no projeto e roda a compilação
+          if [ -f "Makefile" ] || [ -f "makefile" ]; then
+            make clean || true
+            make all
+          elif [ -f "linux/Makefile" ] || [ -f "linux/makefile" ]; then
+            cd linux
+            make clean || true
+            make all
+          else
+            echo "❌ Nenhum Makefile encontrado na raiz ou na pasta linux!"
             exit 1
           fi
 
-      - name: Obter Git Hash e UUID
-        id: ids
+      - name: Obter Identificação (Git Hash e UUID)
+        id: info
         run: |
           echo "hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          KEXT_BIN="RealtekPCI-E_Version.kext/Contents/MacOS/RealtekPCI-E_Version"
-          if [ -f "$KEXT_BIN" ]; then
-            UUID=$(dwarfdump --uuid "$KEXT_BIN" | awk '{print $2}')
+          
+          # Procura o binário gerado para extrair o UUID
+          KEXT_PATH=$(find . -name "RealtekPCI-E_Version" -type f | head -n 1)
+          if [ -n "$KEXT_PATH" ]; then
+            UUID=$(dwarfdump --uuid "$KEXT_PATH" | awk '{print $2}')
             echo "uuid=$UUID" >> $GITHUB_OUTPUT
           else
             echo "uuid=nobin" >> $GITHUB_OUTPUT
           fi
 
-      - name: Compactar Artefato (.zip)
+      - name: Compactar Kext para Artefato
         run: |
-          ZIP_NAME="RealtekPCI-E_Version_${{ steps.ids.outputs.hash }}_${{ steps.ids.outputs.uuid }}.zip"
-          zip -r -1 "${{ runner.temp }}/$ZIP_NAME" RealtekPCI-E_Version.kext > /dev/null
+          # Localiza a pasta da Kext gerada
+          BUNDLE_PATH=$(find . -name "RealtekPCI-E_Version.kext" -type d | head -n 1)
+          
+          if [ -z "$BUNDLE_PATH" ]; then
+            echo "❌ Erro: RealtekPCI-E_Version.kext não foi encontrada!"
+            exit 1
+          fi
+          
+          ZIP_NAME="RealtekPCI-E_Version_${{ steps.info.outputs.hash }}_${{ steps.info.outputs.uuid }}.zip"
+          
+          # Copia e compacta
+          zip -r -1 "${{ runner.temp }}/$ZIP_NAME" "$BUNDLE_PATH" > /dev/null
           echo "ZIP_PATH=${{ runner.temp }}/$ZIP_NAME" >> $GITHUB_ENV
 
-      - name: Upload do Artefato
+      - name: Upload do Artefato Final
         uses: actions/upload-artifact@v4
         with:
-          name: RealtekPCI-E_Version_${{ steps.ids.outputs.hash }}_${{ steps.ids.outputs.uuid }}
+          name: RealtekPCI-E_Version_${{ steps.info.outputs.hash }}
           path: ${{ env.ZIP_PATH }}
