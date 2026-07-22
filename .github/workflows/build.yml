@@ -12,33 +12,35 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      # 1. Baixa o código do repositório
+      # 1. Baixa o código do repositório com os submódulos
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      # 2. Garante as pastas e symlinks necessários
+      # 2. Cria as symlinks necessárias para a Realtek
       - name: Prepare symlinks
         run: |
           ln -sf rtl8723be rtl8723ae || true
 
-      # 3. Compila o projeto usando o Xcode
-      - name: Build Kext
+      # 3. Compila o projeto itlwm via xcodebuild
+      - name: Build Kext with Xcode
         run: |
-          xcodebuild -project *.xcodeproj -scheme itlwm -configuration Release build || make
+          xcodebuild -project itlwm.xcodeproj -scheme itlwm -configuration Release CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
 
-      # 4. Compacta o resultado em ZIP
+      # 4. Compacta a Kext gerada em ZIP
       - name: Compress Artifacts
         run: |
           mkdir -p build/Artifacts
           if [ -d "build/Release/itlwm.kext" ]; then
             cd build/Release && zip -r ../Artifacts/itlwm-Realtek.zip itlwm.kext
+          elif [ -d "build/itlwm.kext" ]; then
+            cd build && zip -r Artifacts/itlwm-Realtek.zip itlwm.kext
           else
-            zip -r build/Artifacts/itlwm-Realtek.zip *.kext || echo "Verifique a pasta de saída do build"
+            find build -name "*.kext" -exec zip -r build/Artifacts/itlwm-Realtek.zip {} +
           fi
 
-      # 5. Disponibiliza o ZIP para download na aba Actions
+      # 5. Disponibiliza o download na aba Actions
       - name: Upload Kext Artifact
         uses: actions/upload-artifact@v4
         with:
