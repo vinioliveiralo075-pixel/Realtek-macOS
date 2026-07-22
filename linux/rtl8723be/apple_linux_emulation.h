@@ -1477,6 +1477,7 @@ struct wiphy {
     uint32_t interface_modes;
     uint32_t flags;
     uint32_t rts_threshold;
+    u8 perm_addr[ETH_ALEN]; // <--- ADICIONADO AQUI (usando ETH_ALEN ou 6)
 };
 
 struct ieee80211_chan_def {
@@ -1489,6 +1490,7 @@ struct ieee80211_chan_def {
 struct ieee80211_hw {
     void *priv;
     struct wiphy *wiphy;
+    const char *rate_control_algorithm; // <--- ADICIONADO AQUI
     struct {
         struct ieee80211_chan_def chandef;
     } conf;
@@ -1628,6 +1630,7 @@ enum nl80211_channel_type {
 };
 
 struct ht_capability {
+    bool ht_supported; // <--- ADICIONADO AQUI
     uint16_t cap;
     struct { uint8_t rx_mask[2]; } mcs;
     uint8_t ampdu_density;
@@ -1641,6 +1644,7 @@ struct ieee80211_sta {
     struct list_head list;
     uint32_t supp_rates[2]; 
     struct ht_capability ht_cap;
+    struct ieee80211_sta_vht_cap vht_cap; // <--- ADICIONADO AQUI
     struct ieee80211_vif *vif;
 };
 
