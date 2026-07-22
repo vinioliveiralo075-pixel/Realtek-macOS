@@ -36,9 +36,17 @@ jobs:
         run: |
           cd linux
           make clean || true
-          make
-        env:
-          SDKPATH: $(xcrun --sdk macosx --show-sdk-path)
+          
+          # Descobre o caminho dinâmico do SDK no macOS do GitHub Actions
+          SDK_DIR=$(xcrun --sdk macosx --show-sdk-path)
+          
+          # Executa o make passando as pastas de headers para resolver o sys/cdefs.h
+          make CFLAGS="-mkernel -arch x86_64 -nostdinc -target x86_64-apple-macos11 \
+            -I$SDK_DIR/System/Library/Frameworks/Kernel.framework/Headers \
+            -I$SDK_DIR/usr/include \
+            -I$GITHUB_WORKSPACE/MacKernelSDK/Headers \
+            -I. -Irtl8723be -Irtl8723com -Ibtcoexist \
+            -DKERNEL -DKERNEL_PRIVATE -fno-builtin -DCONFIG_RTLWIFI_DEBUG -DBT_SUPPORT=1 -DCOEX_SUPPORT=1"
 
       - name: Pack Artifacts
         run: |
