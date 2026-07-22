@@ -17,33 +17,25 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Clone rtw88-stable
-        run: |
-          if [ ! -d "rtw88-stable" ]; then
-            git clone --depth 1 https://github.com/thegwchr/rtw88-stable.git
-          fi
-
-      - name: Download Firmware Blobs
+      - name: Download Firmwares Realtek (RTL8723BE)
         run: |
           mkdir -p firmware
           cd firmware
-          for fw in rtw8723b_fw.bin rtw8822b_fw.bin rtw8821c_fw.bin; do
-            if [ ! -s "$fw" ]; then
-              curl -sLO "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/rtw88/$fw" || true
-            fi
-          done
+          # Baixa os firmwares do repositório oficial do Larry Finger / Linux Kernel
+          curl -sLO "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/rtlwifi/rtl8723befw.bin" || true
+          curl -sLO "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/rtlwifi/rtl8723befw_36.bin" || true
           ls -lh *.bin || true
 
-      - name: Compilar Kext
+      - name: Compilar Kext (RTL8723BE)
         run: |
           export SDKPATH=$(xcrun --sdk macosx --show-sdk-path)
           export CFLAGS="-w -fmax-errors=1 -mmacosx-version-min=11.0 -isysroot $SDKPATH"
           
-          make clean > /dev/null 2>&1
-          make all 2>&1 | grep -E "error:|fatal error:" || true
+          make clean || true
+          make all
           
           if [ ! -d "RealtekPCI-E_Version.kext" ]; then
-            echo "❌ Erro na compilação do driver."
+            echo "❌ Erro grave! A Kext RealtekPCI-E_Version.kext não foi gerada."
             exit 1
           fi
 
