@@ -395,6 +395,9 @@ static __always_inline int list_empty(const struct list_head *head)
 #define list_last_entry(ptr, type, member) \
     container_of((ptr)->prev, type, member)
 
+#define list_first_entry_or_null(ptr, type, member) \
+    (!list_empty(ptr) ? list_first_entry(ptr, type, member) : NULL)
+
 #define list_next_entry(pos, member) \
     container_of((pos)->member.next, typeof(*(pos)), member)
 
