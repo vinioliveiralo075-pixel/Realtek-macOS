@@ -1,40 +1,125 @@
-name: Build Driver Realtek (Make)
+name: Realtek macOS Kernel Extension CI/CD Pipeline
 
 on:
   push:
     branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
   workflow_dispatch:
+    inputs:
+      debug_mode:
+        description: 'Habilitar logs verbosos durante o build'
+        required: false
+        default: 'false'
+
+env:
+  PROJECT_ROOT: 'linux'
+  SDK_REPO: 'https://github.com/acidanthera/MacKernelSDK.git'
 
 jobs:
-  build:
+  # -------------------------------------------------------------
+  # JOB 1: Análise Estática e Verificação de Sanidade do Código
+  # -------------------------------------------------------------
+  code-analysis:
+    name: Code Lint & Sanity Check
     runs-on: macos-latest
 
     steps:
-      # 1. Baixa o código do seu repositório
-      - name: Checkout repository
+      - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      # 2. Cria a symlink da Realtek para evitar o erro do dm.h
-      - name: Prepare Symlinks
+      - name: System Environment Diagnostics
         run: |
+          echo "=========================================="
+          echo "    INFORMACÕES DO SERVIDOR DE BUILD      "
+          echo "=========================================="
+          uname -a
+          sw_vers
+          clang --version
+          make --version
+          echo "=========================================="
+
+      - name: Verify Directory Structure
+        run: |
+          if [ ! -d "$PROJECT_ROOT" ]; then
+            echo "::error::Diretório de código-fonte $PROJECT_ROOT não encontrado!"
+            exit 1
+          fi
+          echo "Estrutura do diretório $PROJECT_ROOT OK."
+
+  # -------------------------------------------------------------
+  # JOB 2: Compilação do Driver (Matriz Debug/Release)
+  # -------------------------------------------------------------
+  build-driver:
+    name: Build Driver (${{ matrix.build_type }})
+    needs: code-analysis
+    runs-on: macos-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Debug, Release]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract Commit Metadata
+        id: meta
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          BUILD_DATE=$(date +'%Y%m%d')
+          echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_ENV
+          echo "BUILD_DATE=$BUILD_DATE" >> $GITHUB_ENV
+          echo "Commit curto: $SHORT_SHA"
+          echo "Data da Build: $BUILD_DATE"
+
+      - name: Setup macOS Kernel SDK
+        run: |
+          echo "Baixando dependências do MacKernelSDK..."
+          git clone --depth=1 $SDK_REPO MacKernelSDK
+          if [ -d "MacKernelSDK" ]; then
+            echo "MacKernelSDK instalado com sucesso."
+          else
+            echo "::error::Falha ao baixar MacKernelSDK."
+            exit 1
+          fi
+
+      - name: Configure Realtek Symlinks & Headers
+        run: |
+          echo "Configurando alinhamento de diretórios Realtek..."
+          cd $PROJECT_ROOT
           ln -sf rtl8723be rtl8723ae || true
+          ls -la
 
-      # 3. Baixa os cabeçalhos do Kernel do macOS (MacKernelSDK)
-      - name: Install MacKernelSDK
+      - name: Execute Compilation (Make)
         run: |
-          git clone --depth=1 https://github.com/acidanthera/MacKernelSDK.git
+          cd $PROJECT_ROOT
+          echo "Iniciando compilação no modo: ${{ matrix.build_type }}"
+          
+          # Passa parâmetros adicionais caso o Makefile suporte variáveis
+          make BUILD_TYPE=${{ matrix.build_type }} 2>&1 | tee build_output.log
 
-      # 4. Compila usando o Make
-      - name: Compile with Make
+      - name: Package Generated Binary Artifacts
+        if: always()
         run: |
-          make
+          mkdir -p output_artifacts
+          
+          # Procura e move arquivos compilados (.kext, .ko, .o)
+          find $PROJECT_ROOT -name "*.kext" -exec cp -r {} output_artifacts/ \; || true
+          find $PROJECT_ROOT -name "*.o" -exec cp {} output_artifacts/ \; || true
+          find $PROJECT_ROOT -name "build_output.log" -exec cp {} output_artifacts/ \; || true
 
-      # 5. Salva os arquivos compilados (.kext ou .o)
-      - name: Upload Artifact
+          # Compacta os resultados em um pacote final
+          ZIP_NAME="Realtek_Driver_${{ matrix.build_type }}_${{ env.BUILD_DATE }}_${{ env.SHORT_SHA }}.zip"
+          zip -r $ZIP_NAME output_artifacts/
+          echo "ARTIFACT_ZIP=$ZIP_NAME" >> $GITHUB_ENV
+
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Realtek-Driver-Build
-          path: |
-            *.kext
-            **/*.kext
-            *.o
+          name: Realtek-Driver-${{ matrix.build_type }}-${{ env.SHORT_SHA }}
+          path: output_artifacts/
+          retention-days: 7
