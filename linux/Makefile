@@ -1,10 +1,14 @@
 SDKPATH ?= $(shell xcrun --show-sdk-path)
 CC ?= clang
 
+# Detecta automaticamente a pasta do MacKernelSDK se ela existir
+MACKERNEL_INC := $(shell if [ -d "../MacKernelSDK/Headers" ]; then echo "-I../MacKernelSDK/Headers"; elif [ -d "MacKernelSDK/Headers" ]; then echo "-IMacKernelSDK/Headers"; fi)
+
 override CFLAGS += -mkernel -arch x86_64 -nostdinc -target x86_64-apple-macos11 \
                    -I$(SDKPATH)/System/Library/Frameworks/Kernel.framework/Headers \
                    -I$(SDKPATH)/usr/include \
-                   -I. -Irtl8723be -Irtl8723com -Ibtcoexist \
+                   $(MACKERNEL_INC) \
+                   -I. -I.. -Irtl8723be -Irtl8723com -Ibtcoexist \
                    -DKERNEL -DKERNEL_PRIVATE -fno-builtin \
                    -DCONFIG_RTLWIFI_DEBUG -DBT_SUPPORT=1 -DCOEX_SUPPORT=1
 
@@ -21,13 +25,15 @@ COM_DIR = rtl8723com
 KEXT_BUNDLE = RealtekPCI-E_Version.kext
 TARGET      = $(KEXT_BUNDLE)/Contents/MacOS/RealtekPCI-E_Version
 
+.PHONY: all prep_headers subdirs clean
+
 all: prep_headers subdirs $(TARGET)
 
 prep_headers:
 	@mkdir -p linux
 	@touch linux/module.h linux/ip.h linux/init.h linux/kernel.h linux/types.h linux/pci.h linux/netdevice.h linux/etherdevice.h linux/vmalloc.h linux/export.h
 
-subdirs:
+subdirs: prep_headers
 	$(MAKE) -C $(COM_DIR) CFLAGS="$(CFLAGS)" CC="$(CC)"
 	$(MAKE) -C $(BTC_DIR) CFLAGS="$(CFLAGS)" CC="$(CC)"
 	$(MAKE) -C $(BE_DIR) CFLAGS="$(CFLAGS)" CC="$(CC)"
@@ -36,7 +42,7 @@ $(TARGET): $(ROOT_OBJS) subdirs
 	@mkdir -p $(KEXT_BUNDLE)/Contents/MacOS
 	$(CC) $(LDFLAGS) $(ROOT_OBJS) $(BE_DIR)/*.o $(COM_DIR)/*.o $(BTC_DIR)/*.o -o $(TARGET)
 
-%.o: %.c
+%.o: %.c prep_headers
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
