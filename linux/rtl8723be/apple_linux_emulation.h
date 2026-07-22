@@ -801,7 +801,7 @@ static __always_inline void mdelay(unsigned long msecs)
     IOSleep((unsigned int)msecs);
 }
 
-/* CORREÇÃO: Chamando a função nativa do IOKit com a capitalização correta (IODelay) */
+/* Chamando a função nativa do IOKit */
 static __always_inline void udelay(unsigned long usecs)
 {
     IODelay((unsigned int)usecs);
@@ -1318,6 +1318,19 @@ static __always_inline void iounmap(void *addr)
 #define IPPROTO_UDP 17
 #endif
 
+// Forward Declarations para evitar avisos de protótipo implícito
+struct sk_buff;
+void kfree_skb(struct sk_buff *skb);
+
+#ifndef dev_kfree_skb_any
+static inline void dev_kfree_skb_any(struct sk_buff *skb) {
+    if (skb) {
+        /* Chama a função de free de skb do seu emulador se existir */
+        kfree_skb(skb);
+    }
+}
+#endif
+
 // Macros de Sinalização e Flags de Rx/Tx
 #define RX_FLAG_FAILED_FCS_CRC    (1 << 0)
 #define RX_FLAG_MACTIME_START     (1 << 1)
@@ -1486,7 +1499,6 @@ struct wireless_dev {
 
 struct wiphy;
 
-/* CORREÇÃO DO VENDOR COMMAND (Evita erro de array e inicialização de struct) */
 struct wiphy_vendor_command {
     uint32_t vendor_id;
     uint32_t subcmd;
@@ -1538,7 +1550,6 @@ struct ieee80211_hdr {
     uint8_t addr4[6];
 } __attribute__((packed));
 
-/* ESTRUTURA COMPLETA IEEE80211_MGMT PARA EVITAR INCOMPLETE TYPE */
 struct ieee80211_mgmt {
     uint16_t frame_control;
     uint16_t duration;
