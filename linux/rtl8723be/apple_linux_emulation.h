@@ -1303,20 +1303,65 @@ static __always_inline void iounmap(void *addr)
 #define mb()    __sync_synchronize()
 
 /*******************************************************************************
- * 23. IEEE 802.11 / MAC80211 WIRELESS CORE NETWORK INFRASTRUCTURE
+ * 23. IEEE 802.11 / MAC80211 WIRELESS CORE NETWORK INFRASTRUCTURE & IP STACK
  *******************************************************************************/
+
+#include <stdint.h>
+#include <stdbool.h>
 
 #ifndef ETH_ALEN
 #define ETH_ALEN 6
 #endif
 
+/* Protocols Ethernet */
 #ifndef ETH_P_IP
 #define ETH_P_IP 0x0800
+#endif
+
+#ifndef ETH_P_ARP
+#define ETH_P_ARP 0x0806
+#endif
+
+#ifndef ETH_P_PAE
+#define ETH_P_PAE 0x888E
+#endif
+
+#ifndef ETH_P_IPV6
+#define ETH_P_IPV6 0x86DD
 #endif
 
 #ifndef IPPROTO_UDP
 #define IPPROTO_UDP 17
 #endif
+
+/* Estrutura do Cabeçalho IP para decodificação */
+struct iphdr {
+#if defined(__LITTLE_ENDIAN_BITFIELD) || defined(__LITTLE_ENDIAN__)
+    uint8_t ihl:4,
+            version:4;
+#else
+    uint8_t version:4,
+            ihl:4;
+#endif
+    uint8_t tos;
+    uint16_t tot_len;
+    uint16_t id;
+    uint16_t frag_off;
+    uint8_t ttl;
+    uint8_t protocol;
+    uint16_t check;
+    uint32_t saddr;
+    uint32_t daddr;
+};
+
+/* Operações Atômicas de Emulação */
+typedef struct {
+    volatile int counter;
+} atomic_t;
+
+static inline int atomic_inc_return(atomic_t *v) {
+    return __sync_add_and_fetch(&v->counter, 1);
+}
 
 // Forward Declarations para evitar avisos de protótipo implícito
 struct sk_buff;
@@ -1325,7 +1370,6 @@ void kfree_skb(struct sk_buff *skb);
 #ifndef dev_kfree_skb_any
 static inline void dev_kfree_skb_any(struct sk_buff *skb) {
     if (skb) {
-        /* Chama a função de free de skb do seu emulador se existir */
         kfree_skb(skb);
     }
 }
@@ -1499,6 +1543,7 @@ struct wireless_dev {
 
 struct wiphy;
 
+/* Correção para o erro de lista de inicialização e sizeof */
 struct wiphy_vendor_command {
     uint32_t vendor_id;
     uint32_t subcmd;
@@ -1514,7 +1559,7 @@ struct wiphy {
     uint32_t interface_modes;
     uint32_t flags;
     uint32_t rts_threshold;
-    u8 perm_addr[ETH_ALEN];
+    uint8_t perm_addr[ETH_ALEN];
 };
 
 struct ieee80211_chan_def {
@@ -1631,7 +1676,7 @@ static inline int ieee80211_has_protected(uint16_t fc) {
     return fc & 0x4000;
 }
 
-static inline u8 ieee80211_get_hdrlen_from_skb(struct sk_buff *skb) {
+static inline uint8_t ieee80211_get_hdrlen_from_skb(struct sk_buff *skb) {
     return sizeof(struct ieee80211_hdr);
 }
 
@@ -1640,8 +1685,11 @@ static __always_inline uint8_t *ieee80211_get_qos_ctl(const void *hdr) {
     return dummy_qos;
 }
 
+/* Membros bss_conf e campos anexados para ieee80211_vif */
 struct ieee80211_vif {
-    int dummy;
+    struct {
+        bool use_short_slot;
+    } bss_conf;
 };
 
 struct ieee80211_tx_queue_params {
@@ -1649,6 +1697,7 @@ struct ieee80211_tx_queue_params {
     unsigned int aifs;
     unsigned int cw_min;
     unsigned int cw_max;
+    unsigned int txop;
 };
 
 /* Sincronização de Threads */
@@ -1737,8 +1786,10 @@ struct ht_capability {
     uint8_t ampdu_density;
 };
 
+/* Inclusão do campo addr para ieee80211_sta */
 struct ieee80211_sta {
-    u8 mac_addr[6];
+    uint8_t addr[ETH_ALEN];
+    uint8_t mac_addr[ETH_ALEN];
     void *driver_priv;
     void *drv_priv;
     unsigned int aid;
@@ -1752,6 +1803,10 @@ struct ieee80211_sta {
 static __always_inline struct ieee80211_sta *ieee80211_find_sta(struct ieee80211_vif *vif, const uint8_t *mgm_addr) {
     return NULL;
 }
+
+/* Callbacks de Block ACK */
+static inline void ieee80211_start_tx_ba_cb_irqsafe(struct ieee80211_vif *vif, const uint8_t *ra, uint8_t tid) {}
+static inline void ieee80211_stop_tx_ba_cb_irqsafe(struct ieee80211_vif *vif, const uint8_t *ra, uint8_t tid) {}
 
 #define PCI_DMA_TODEVICE 1
 
