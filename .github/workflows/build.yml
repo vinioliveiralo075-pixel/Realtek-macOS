@@ -1,49 +1,51 @@
-name: Build Driver Realtek
+name: Build Realtek Kext
 
 on:
   push:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+env:
+  BUILD_OUTPUT: 'build/Build/Products/Debug'
+
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
-      # 1. Baixa o código do repositório
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      # 1. Baixa o repositório
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: '0'
 
-      # 2. Mostra a estrutura de arquivos no log para conferirmos
-      - name: List Repository Files
-        run: |
-          echo "=== Lista de Arquivos no Repositório ==="
-          ls -la
-
-      # 3. Cria o link simbólico para resolver o erro do dm.h
-      - name: Create Symlinks
+      # 2. Cria as symlinks para os headers da Realtek
+      - name: Prepare Symlinks
         run: |
           ln -sf rtl8723be rtl8723ae || true
 
-      # 4. Tenta compilar via Xcode se encontrar o projeto, senão usa o Make
-      - name: Compile Project
+      # 3. Baixa a SDK de Kernel do macOS (Indispensável para compilar a Kext)
+      - name: Install MacKernelSDK
         run: |
-          if [ -d "*.xcodeproj" ] || [ -f "*.xcodeproj" ]; then
-            echo "Projeto Xcode encontrado. Compilando..."
-            xcodebuild -project *.xcodeproj -configuration Release CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
-          elif [ -f "Makefile" ] || [ -f "makefile" ]; then
-            echo "Makefile encontrado. Compilando com make..."
-            make
+          git clone --depth=1 https://github.com/acidanthera/MacKernelSDK.git
+
+      # 4. Compila o itlwm com o Xcode
+      - name: Build itlwm
+        run: |
+          xcodebuild -scheme itlwm -configuration Debug -derivedDataPath build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+
+      # 5. Compacta a Kext gerada em ZIP
+      - name: Pack Artifacts
+        run: |
+          mkdir -p build/Artifacts
+          if [ -d "$BUILD_OUTPUT/itlwm.kext" ]; then
+            cd $BUILD_OUTPUT && zip -r ../../../Artifacts/itlwm-Realtek-DEBUG.zip itlwm.kext
           else
-            echo "Nenhum Makefile ou Xcode project encontrado no diretório raiz."
-            exit 1
+            find build -name "*.kext" -exec zip -r build/Artifacts/itlwm-Realtek-DEBUG.zip {} +
           fi
 
-      # 5. Salva o resultado
-      - name: Upload Artifact
+      # 6. Disponibiliza o download na aba Actions
+      - name: Upload Kext Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Kext-Build
-          path: |
-            build/Release/*.kext
-            *.kext
+          name: Realtek-WiFi-Kext
+          path: build/Artifacts/*.zip
