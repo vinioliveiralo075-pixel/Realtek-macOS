@@ -1597,6 +1597,9 @@ struct ieee80211_tx_info {
     uint32_t flags;
     struct {
         struct ieee80211_key_conf *hw_key;
+        struct {
+            uint8_t flags;
+        } rates[1];  // <--- Adicione apenas este bloco dentro de control
     } control;
 };
 
@@ -1803,39 +1806,21 @@ static inline void pci_unmap_single(void *pdev, uint64_t dma_addr, size_t size, 
 #endif
 
 /* ========================================================================
-   BLOCO DE COMPATIBILIDADE / STUBS PARA COMPILAÇÃO NO MACOS (CLANG)
+   STUBS E MACROS DE COMPATIBILIDADE - FINAL DO ARQUIVO
    ======================================================================== */
 
-#include <linux/types.h>
-
-// 1. MACROS E RFKILL (Transformados em instruções nulas/muda)
+#ifndef SET_IEEE80211_PERM_ADDR
 #define SET_IEEE80211_PERM_ADDR(hw, addr) memcpy((hw)->wiphy->perm_addr, (addr), ETH_ALEN)
+#endif
+
 #define wiphy_rfkill_set_hw_state(wiphy, blocked) do {} while(0)
 #define wiphy_rfkill_start_polling(wiphy) do {} while(0)
 #define wiphy_rfkill_stop_polling(wiphy) do {} while(0)
 
-// 2. STUBS DE FUNÇÕES DO KERNEL
-static inline void get_random_bytes(void *buf, int nbytes) { memset(buf, 0, nbytes); }
+static inline void get_random_bytes(void *buf, int nbytes) { 
+    if (nbytes > 0) memset(buf, 0, (size_t)nbytes); 
+}
 static inline void *alloc_workqueue(const char *fmt, unsigned int flags, int max_active, ...) { return NULL; }
 static inline bool cancel_delayed_work(void *dwork) { return true; }
-
-// 3. ESTRUTURA FAKE DE VENDOR COMMANDS (Evita erro de array/sizeof)
-struct wiphy_vendor_command {
-    u32 vendor_id;
-    u32 subcmd;
-};
-
-// 4. CAMPOS FALTANTES NAS ESTRUTURAS DO IEEE80211
-// Nota: Se estas structs já existirem no seu .h, adicione apenas os campos abaixo dentro delas.
-
-struct ieee80211_tx_info {
-    struct {
-        struct {
-            u8 flags;
-        } rates[1];
-    } control;
-};
-
-/* ======================================================================== */
 
 #endif /* _APPLE_LINUX_EMULATION_H_ */
