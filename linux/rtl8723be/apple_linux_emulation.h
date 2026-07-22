@@ -1307,17 +1307,17 @@ static __always_inline void iounmap(void *addr)
  *******************************************************************************/
 
 // Macros de Sinalização e Flags de Rx/Tx
-#define RX_FLAG_FAILED_FCS_CRC   (1 << 0)
-#define RX_FLAG_MACTIME_START    (1 << 1)
-#define RX_FLAG_DECRYPTED        (1 << 2)
+#define RX_FLAG_FAILED_FCS_CRC    (1 << 0)
+#define RX_FLAG_MACTIME_START     (1 << 1)
+#define RX_FLAG_DECRYPTED         (1 << 2)
 
-#define RATE_INFO_BW_40          1
-#define RX_ENC_HT                2
+#define RATE_INFO_BW_40           1
+#define RX_ENC_HT                 2
 
 #define IEEE80211_SCTL_FRAG      0x000f
 #define IEEE80211_SCTL_SEQ       0xfff0
 #define IEEE80211_FCTL_MOREFRAGS 0x0400
-#define IEEE80211_TX_CTL_AMPDU   (1 << 0)
+#define IEEE80211_TX_CTL_AMPDU    (1 << 0)
 
 #define IEEE80211_FCTL_FTYPE        0x000c
 #define IEEE80211_FTYPE_MGMT        0x0000
@@ -1329,34 +1329,46 @@ static __always_inline void iounmap(void *addr)
 #define IEEE80211_FCTL_FROMDS       0x0200
 #define IEEE80211_QOS_CTL_TID_MASK  0x000f
 
+// Flags de TX Rate Control que faltavam para o base.c
+#define IEEE80211_TX_RC_USE_SHORT_PREAMBLE (1 << 0)
+#define IEEE80211_TX_RC_SHORT_GI           (1 << 1)
+#define IEEE80211_TX_RC_USE_CTS_PROTECT    (1 << 2)
+#define IEEE80211_TX_RC_USE_RTS_CTS        (1 << 3)
+#define IEEE80211_TX_RC_MCS                (1 << 4)
+#define IEEE80211_TX_RC_VHT_MCS            (1 << 5)
+
 // Identificadores de Criptografia (Cipher Suites)
 #define WLAN_CIPHER_SUITE_WEP40  0x000fc001
 #define WLAN_CIPHER_SUITE_WEP104 0x000fc005
 #define WLAN_CIPHER_SUITE_TKIP   0x000fc002
 #define WLAN_CIPHER_SUITE_CCMP   0x000fc004
 
-// Flags de Hardware IEEE 802.11 e Power Save (Exigidas pelo base.c)
-#define SIGNAL_DBM              (1 << 0)
-#define RX_INCLUDES_FCS         (1 << 1)
-#define AMPDU_AGGREGATION       (1 << 2)
-#define CONNECTION_MONITOR      (1 << 3)
-#define MFP_CAPABLE             (1 << 4)
-#define REPORTS_TX_ACK_STATUS   (1 << 5)
-#define SUPPORTS_TX_FRAG        (1 << 6)
-#define SUPPORT_FAST_XMIT       (1 << 7)
-#define SUPPORTS_AMSDU_IN_AMPDU (1 << 8)
-#define SUPPORTS_PS             (1 << 9)
-#define PS_NULLFUNC_STACK       (1 << 10)
-#define SUPPORTS_DYNAMIC_PS     (1 << 11)
+// Flags de Hardware IEEE 802.11 e Power Save
+#define SIGNAL_DBM               (1 << 0)
+#define RX_INCLUDES_FCS          (1 << 1)
+#define AMPDU_AGGREGATION        (1 << 2)
+#define CONNECTION_MONITOR       (1 << 3)
+#define MFP_CAPABLE              (1 << 4)
+#define REPORTS_TX_ACK_STATUS    (1 << 5)
+#define SUPPORTS_TX_FRAG         (1 << 6)
+#define SUPPORT_FAST_XMIT        (1 << 7)
+#define SUPPORTS_AMSDU_IN_AMPDU  (1 << 8)
+#define SUPPORTS_PS              (1 << 9)
+#define PS_NULLFUNC_STACK        (1 << 10)
+#define SUPPORTS_DYNAMIC_PS      (1 << 11)
 
 // Flags do Wiphy
-#define WIPHY_FLAG_IBSS_RSN               (1 << 0)
+#define WIPHY_FLAG_IBSS_RSN                (1 << 0)
 #define WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL  (1 << 1)
 
 // Constantes de Limites
 #define AC_MAX                  4
 #define MAX_LISTEN_INTERVAL     10
 #define MAX_RATE_TRIES          4
+
+#ifndef ETH_ALEN
+#define ETH_ALEN 6
+#endif
 
 // Flags de Banda e Canal
 enum nl80211_band {
@@ -1373,7 +1385,7 @@ enum nl80211_band {
 #define IEEE80211_HT_MPDU_DENSITY_16     7
 #define IEEE80211_HT_MCS_TX_DEFINED      0x01
 
-// Stubs de enums e structs para sanar warnings de visibilidade do base.h e regd.h
+// Stubs de enums e structs
 enum ieee80211_smps_mode {
     IEEE80211_SMPS_STATIC,
     IEEE80211_SMPS_DYNAMIC,
@@ -1416,18 +1428,20 @@ struct ieee80211_sta_ht_cap {
 };
 
 /* --- VHT Support Definitions --- */
-#define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454          0x00000002
-#define IEEE80211_VHT_CAP_SHORT_GI_80                    0x00000020
-#define IEEE80211_VHT_CAP_TXSTBC                         0x00000080
-#define IEEE80211_VHT_CAP_RXSTBC_1                       0x00000100
+#define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454           0x00000002
+#define IEEE80211_VHT_CAP_SHORT_GI_80                     0x00000020
+#define IEEE80211_VHT_CAP_TXSTBC                          0x00000080
+#define IEEE80211_VHT_CAP_RXSTBC_1                        0x00000100
 #define IEEE80211_VHT_CAP_SU_BEAMFORMER_CAPABLE          0x00000800
 #define IEEE80211_VHT_CAP_SU_BEAMFORMEE_CAPABLE          0x00001000
-#define IEEE80211_VHT_CAP_HTC_VHT                        0x00800000
+#define IEEE80211_VHT_CAP_HTC_VHT                         0x00800000
 #define IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_MASK 0x03800000
-#define IEEE80211_VHT_CAP_RX_ANTENNA_PATTERN             0x10000000
-#define IEEE80211_VHT_CAP_TX_ANTENNA_PATTERN             0x20000000
+#define IEEE80211_VHT_CAP_RX_ANTENNA_PATTERN              0x10000000
+#define IEEE80211_VHT_CAP_TX_ANTENNA_PATTERN              0x20000000
 
-#define IEEE80211_VHT_MCS_SUPPORT_0_9                    0
+#define IEEE80211_VHT_MCS_SUPPORT_0_7                     0
+#define IEEE80211_VHT_MCS_SUPPORT_0_8                     1
+#define IEEE80211_VHT_MCS_SUPPORT_0_9                     2
 #define IEEE80211_VHT_MCS_NOT_SUPPORTED                  3
 
 struct ieee80211_vht_mcs {
@@ -1477,7 +1491,7 @@ struct wiphy {
     uint32_t interface_modes;
     uint32_t flags;
     uint32_t rts_threshold;
-    u8 perm_addr[ETH_ALEN]; // <--- ADICIONADO AQUI (usando ETH_ALEN ou 6)
+    u8 perm_addr[ETH_ALEN];
 };
 
 struct ieee80211_chan_def {
@@ -1490,7 +1504,7 @@ struct ieee80211_chan_def {
 struct ieee80211_hw {
     void *priv;
     struct wiphy *wiphy;
-    const char *rate_control_algorithm; // <--- ADICIONADO AQUI
+    const char *rate_control_algorithm;
     struct {
         struct ieee80211_chan_def chandef;
     } conf;
@@ -1588,22 +1602,37 @@ static __always_inline long wait_for_completion_timeout(struct completion *x, un
 
 static __always_inline int in_interrupt(void) { return 0; }
 
-// Estrutura de chaves de criptografia
+// Estrutura de chaves de criptografia e taxa de TX
 struct ieee80211_key_conf {
     uint32_t cipher;
     uint8_t keyidx;
     uint8_t keylen;
 };
 
+struct ieee80211_tx_rate {
+    uint32_t flags;
+    uint8_t idx;
+    uint8_t count;
+};
+
 struct ieee80211_tx_info {
     uint32_t flags;
     struct {
         struct ieee80211_key_conf *hw_key;
-        struct {
-            uint8_t flags;
-        } rates[1];  // <--- Adicione apenas este bloco dentro de control
+        struct ieee80211_tx_rate rates[4];
     } control;
+    struct {
+        struct ieee80211_tx_rate rates[4];
+    } status;
 };
+
+static inline int ieee80211_rate_get_vht_nss(const struct ieee80211_tx_rate *r) {
+    return (r->idx >> 4) + 1;
+}
+
+static inline int ieee80211_rate_get_vht_mcs(const struct ieee80211_tx_rate *r) {
+    return r->idx & 0x0f;
+}
 
 struct ieee80211_rx_status {
     uint32_t freq;
@@ -1630,7 +1659,7 @@ enum nl80211_channel_type {
 };
 
 struct ht_capability {
-    bool ht_supported; // <--- ADICIONADO AQUI
+    bool ht_supported;
     uint16_t cap;
     struct { uint8_t rx_mask[2]; } mcs;
     uint8_t ampdu_density;
@@ -1644,7 +1673,7 @@ struct ieee80211_sta {
     struct list_head list;
     uint32_t supp_rates[2]; 
     struct ht_capability ht_cap;
-    struct ieee80211_sta_vht_cap vht_cap; // <--- ADICIONADO AQUI
+    struct ieee80211_sta_vht_cap vht_cap;
     struct ieee80211_vif *vif;
 };
 
