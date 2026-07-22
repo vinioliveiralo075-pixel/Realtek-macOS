@@ -1,51 +1,40 @@
-name: Build Realtek Kext
+name: Build Driver Realtek (Make)
 
 on:
   push:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
-env:
-  BUILD_OUTPUT: 'build/Build/Products/Debug'
-
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
-      # 1. Baixa o repositório
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: '0'
+      # 1. Baixa o código do seu repositório
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # 2. Cria as symlinks para os headers da Realtek
+      # 2. Cria a symlink da Realtek para evitar o erro do dm.h
       - name: Prepare Symlinks
         run: |
           ln -sf rtl8723be rtl8723ae || true
 
-      # 3. Baixa a SDK de Kernel do macOS (Indispensável para compilar a Kext)
+      # 3. Baixa os cabeçalhos do Kernel do macOS (MacKernelSDK)
       - name: Install MacKernelSDK
         run: |
           git clone --depth=1 https://github.com/acidanthera/MacKernelSDK.git
 
-      # 4. Compila o itlwm com o Xcode
-      - name: Build itlwm
+      # 4. Compila usando o Make
+      - name: Compile with Make
         run: |
-          xcodebuild -scheme itlwm -configuration Debug -derivedDataPath build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+          make
 
-      # 5. Compacta a Kext gerada em ZIP
-      - name: Pack Artifacts
-        run: |
-          mkdir -p build/Artifacts
-          if [ -d "$BUILD_OUTPUT/itlwm.kext" ]; then
-            cd $BUILD_OUTPUT && zip -r ../../../Artifacts/itlwm-Realtek-DEBUG.zip itlwm.kext
-          else
-            find build -name "*.kext" -exec zip -r build/Artifacts/itlwm-Realtek-DEBUG.zip {} +
-          fi
-
-      # 6. Disponibiliza o download na aba Actions
-      - name: Upload Kext Artifact
+      # 5. Salva os arquivos compilados (.kext ou .o)
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Realtek-WiFi-Kext
-          path: build/Artifacts/*.zip
+          name: Realtek-Driver-Build
+          path: |
+            *.kext
+            **/*.kext
+            *.o
