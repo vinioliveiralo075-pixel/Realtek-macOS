@@ -9,28 +9,42 @@ on:
 
 jobs:
   build-driver:
-    runs-on: macos-latest
+    runs-on: macos-13
+
     steps:
       - name: Checkout do Código
         uses: actions/checkout@v4
 
-      - name: Compilar Kext para Monterey e Ventura
+      - name: Selecionar Xcode 14.2
         run: |
-          # Entra na raiz do projeto Linux para rodar o Makefile mestre
-          cd linux
-          make clean
-          make
-        env:
-          SDKPATH: $(xcrun --sdk macosx --show-sdk-path)
+          sudo xcode-select -s /Applications/Xcode_14.2.app/Contents/Developer > /dev/null 2>&1
 
-      - name: Compactar Kext Corretamente
+      - name: Compilar Kext (Modo Silencioso - Apenas Erros)
         run: |
-          # A kext agora é gerada na raiz da pasta 'linux'
           cd linux
-          zip -r ../RTL8723BE_MacDriver.kext.zip RTL8723BE_MacDriver.kext
+          export SDKPATH=$(xcrun --sdk macosx --show-sdk-path)
+          
+          # -w silencia avisos e -fmax-errors=1 trava no 1º erro para nao gerar logs gigantes
+          export CFLAGS="-w -fmax-errors=1 -mmacosx-version-min=11.0 -isysroot $SDKPATH"
+          
+          make clean > /dev/null 2>&1
+          
+          # O grep garante que APENAS linhas contendo erros reais apareçam no log
+          make -j$(sysctl -n hw.ncpu) 2>&1 | grep -E "error:|fatal error:" || true
+          
+          # Verifica se a Kext foi gerada (renomeada para RealtekPCI-E_Version.kext)
+          if [ ! -d "RealtekPCI-E_Version.kext" ]; then
+            echo "❌ Erro detectado! A compilação falhou."
+            exit 1
+          fi
 
-      - name: Upload do Artefato (Kext)
+      - name: Compactar Kext
+        run: |
+          cd linux
+          zip -r -1 ../RealtekPCI-E_Version.kext.zip RealtekPCI-E_Version.kext > /dev/null
+
+      - name: Upload do Artefato
         uses: actions/upload-artifact@v4
         with:
-          name: RTL8723BE_MacDriver_Monterey_Ventura
-          path: RTL8723BE_MacDriver.kext.zip
+          name: RealtekPCI-E_Version
+          path: RealtekPCI-E_Version.kext.zip
